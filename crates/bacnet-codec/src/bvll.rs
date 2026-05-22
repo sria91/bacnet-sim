@@ -52,19 +52,19 @@ impl BvllFrame {
         buf.put_u8(BVLL_TYPE);
         match self {
             Self::OriginalUnicastNpdu(npdu) => {
-                buf.put_u8(0x10);
+                buf.put_u8(0x0A);
                 let len = (4 + npdu.len()) as u16;
                 buf.put_u16(len);
                 buf.extend_from_slice(npdu);
             }
             Self::OriginalBroadcastNpdu(npdu) => {
-                buf.put_u8(0x11);
+                buf.put_u8(0x0B);
                 let len = (4 + npdu.len()) as u16;
                 buf.put_u16(len);
                 buf.extend_from_slice(npdu);
             }
             Self::RegisterForeignDevice { ttl } => {
-                buf.put_u8(0x0B);
+                buf.put_u8(0x05);
                 buf.put_u16(6);
                 buf.put_u16(*ttl);
             }
@@ -72,7 +72,7 @@ impl BvllFrame {
                 originating_address,
                 npdu,
             } => {
-                buf.put_u8(0x0A);
+                buf.put_u8(0x04);
                 let len = (4 + 6 + npdu.len()) as u16;
                 buf.put_u16(len);
                 buf.extend_from_slice(&originating_address.ip().octets());
@@ -85,7 +85,7 @@ impl BvllFrame {
                 buf.put_u16(*result_code);
             }
             Self::DistributeBroadcastToNetwork(npdu) => {
-                buf.put_u8(0x0F);
+                buf.put_u8(0x09);
                 let len = (4 + npdu.len()) as u16;
                 buf.put_u16(len);
                 buf.extend_from_slice(npdu);
@@ -120,7 +120,7 @@ impl BvllFrame {
                     result_code: u16::from_be_bytes([payload[0], payload[1]]),
                 })
             }
-            0x0A => {
+            0x04 => {
                 // ForwardedNpdu: 4-byte IP + 2-byte port = 6-byte originator, then NPDU.
                 // Minimum valid total frame length = 4 (header) + 6 (originator) = 10.
                 if length < 10 {
@@ -142,7 +142,7 @@ impl BvllFrame {
                     npdu,
                 })
             }
-            0x0B => {
+            0x05 => {
                 // RegisterForeignDevice: 2-byte TTL
                 if payload.len() < 2 {
                     return Err(BacnetError::DecodeError(
@@ -153,11 +153,11 @@ impl BvllFrame {
                     ttl: u16::from_be_bytes([payload[0], payload[1]]),
                 })
             }
-            0x0F => Ok(Self::DistributeBroadcastToNetwork(Bytes::copy_from_slice(
+            0x09 => Ok(Self::DistributeBroadcastToNetwork(Bytes::copy_from_slice(
                 payload,
             ))),
-            0x10 => Ok(Self::OriginalUnicastNpdu(Bytes::copy_from_slice(payload))),
-            0x11 => Ok(Self::OriginalBroadcastNpdu(Bytes::copy_from_slice(payload))),
+            0x0A => Ok(Self::OriginalUnicastNpdu(Bytes::copy_from_slice(payload))),
+            0x0B => Ok(Self::OriginalBroadcastNpdu(Bytes::copy_from_slice(payload))),
             code => Err(BacnetError::DecodeError(format!(
                 "unknown BVLL function {code:#02x}"
             ))),
@@ -175,7 +175,7 @@ mod tests {
         let frame = BvllFrame::OriginalUnicastNpdu(Bytes::from(npdu_data.clone()));
         let encoded = frame.encode();
         assert_eq!(encoded[0], 0x81);
-        assert_eq!(encoded[1], 0x10); // OriginalUnicastNpdu function code
+        assert_eq!(encoded[1], 0x0A); // OriginalUnicastNpdu function code
         let decoded = BvllFrame::decode(&encoded).unwrap();
         assert!(matches!(decoded, BvllFrame::OriginalUnicastNpdu(_)));
     }
@@ -185,7 +185,7 @@ mod tests {
         let frame = BvllFrame::RegisterForeignDevice { ttl: 300 };
         let encoded = frame.encode();
         // function byte
-        assert_eq!(encoded[1], 0x0B);
+        assert_eq!(encoded[1], 0x05);
     }
 
     #[test]
@@ -197,7 +197,7 @@ mod tests {
             npdu,
         };
         let encoded = frame.encode();
-        assert_eq!(encoded[1], 0x0A);
+        assert_eq!(encoded[1], 0x04);
         assert_eq!(&encoded[4..8], &[192, 168, 1, 10]);
         assert_eq!(u16::from_be_bytes([encoded[8], encoded[9]]), 47808);
     }

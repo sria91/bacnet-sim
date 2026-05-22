@@ -176,6 +176,7 @@ impl ApduDispatcher {
     ) -> Result<(), BacnetError> {
         match req {
             UnconfirmedRequest::WhoIs(w) => {
+                info!(low = ?w.low_limit, high = ?w.high_limit, from = ?src, "received Who-Is");
                 // Each registered device that matches the range sends an I-Am
                 for (_, dev) in &self.devices {
                     if let Some(iam) = who_is::handle_who_is(
@@ -196,7 +197,7 @@ impl ApduDispatcher {
                                 npdu: bytes::Bytes::from(npdu_bytes),
                             })
                             .await;
-                        debug!(device_id = dev.device_id.0, "sent I-Am");
+                        info!(device_id = dev.device_id.0, "I-Am sent");
                     }
                 }
             }

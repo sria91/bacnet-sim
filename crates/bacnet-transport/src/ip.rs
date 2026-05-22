@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::sync::{broadcast, mpsc};
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{Destination, InboundFrame, OutboundFrame};
 
@@ -49,6 +49,7 @@ impl BacnetIpTransport {
             loop {
                 match socket_recv.recv_from(&mut buf).await {
                     Ok((n, src)) => {
+                        debug!(bytes = n, from = %src, "UDP packet received");
                         match BvllFrame::decode(&buf[..n]) {
                             Ok(frame) => {
                                 let npdu = match frame {
