@@ -99,13 +99,18 @@ impl BacnetIpTransport {
             let encoded = bvll.encode();
             let dst_addr: SocketAddr = match &frame.dst {
                 Destination::Unicast(addr) => match addr.mac {
-                    bacnet_types::MacAddr::Ip(v4) => SocketAddr::V4(v4),
+                    bacnet_types::MacAddr::Ip(v4) => {
+                        // BACnet/IP always uses port 47808; force it regardless of
+                        // whatever source port the client happened to send from.
+                        SocketAddr::V4(std::net::SocketAddrV4::new(*v4.ip(), BACNET_IP_PORT))
+                    }
                     _ => continue,
                 },
                 Destination::Broadcast { .. } => "255.255.255.255:47808".parse().unwrap(),
             };
-            if let Err(e) = socket_send.send_to(&encoded, dst_addr).await {
-                error!("UDP send error to {dst_addr}: {e}");
+            match socket_send.send_to(&encoded, dst_addr).await {
+                Ok(n) => debug!(bytes = n, to = %dst_addr, "UDP sent"),
+                Err(e) => error!("UDP send error to {dst_addr}: {e}"),
             }
         }
     }

@@ -100,7 +100,7 @@ impl ApduDispatcher {
                     let tx = outbound.clone();
                     tokio::spawn(async move {
                         if let Err(e) = d.handle_frame(frame, tx).await {
-                            debug!("dispatcher error: {e:?}");
+                            warn!("dispatcher error: {e:?}");
                         }
                     });
                 }
@@ -140,7 +140,7 @@ impl ApduDispatcher {
                         self.handle_confirmed(req, frame.src, outbound).await?;
                     }
                     Err(e) => {
-                        debug!("confirmed-request decode error: {e:?}");
+                        warn!("confirmed-request decode error: {e:?}");
                     }
                 }
             }
@@ -151,7 +151,7 @@ impl ApduDispatcher {
                         self.handle_unconfirmed(req, frame.src, outbound).await?;
                     }
                     Err(e) => {
-                        debug!("unconfirmed-request decode error: {e:?}");
+                        warn!("unconfirmed-request decode error: {e:?}");
                     }
                 }
             }
@@ -204,7 +204,7 @@ impl ApduDispatcher {
                                 npdu,
                             })
                             .await;
-                        info!(device_id = dev.device_id.0, "I-Am sent");
+                        info!(device_id = dev.device_id.0, unicast_to = ?src, "I-Am sent");
                     }
                 }
             }
