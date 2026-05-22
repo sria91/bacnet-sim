@@ -2,7 +2,6 @@
 ///
 /// SC frames wrap BACnet NPDUs with a small header carrying function code,
 /// control flags, message ID, and optional virtual addresses.
-
 use bacnet_types::error::BacnetError;
 use bytes::{BufMut, Bytes, BytesMut};
 
@@ -70,17 +69,29 @@ impl ScFrame {
         let mut buf = BytesMut::new();
         buf.put_u8(self.function);
         let mut ctrl = 0u8;
-        if self.control.orig_vaddr_present { ctrl |= 0x08; }
-        if self.control.dest_vaddr_present { ctrl |= 0x04; }
-        if self.control.dest_options_present { ctrl |= 0x02; }
-        if self.control.data_options_present { ctrl |= 0x01; }
+        if self.control.orig_vaddr_present {
+            ctrl |= 0x08;
+        }
+        if self.control.dest_vaddr_present {
+            ctrl |= 0x04;
+        }
+        if self.control.dest_options_present {
+            ctrl |= 0x02;
+        }
+        if self.control.data_options_present {
+            ctrl |= 0x01;
+        }
         buf.put_u8(ctrl);
         buf.put_u16(self.message_id);
-        if let Some(vmac) = self.originating_vmac {
-            buf.extend_from_slice(&vmac);
+        if self.control.orig_vaddr_present {
+            if let Some(vmac) = self.originating_vmac {
+                buf.extend_from_slice(&vmac);
+            }
         }
-        if let Some(vmac) = self.destination_vmac {
-            buf.extend_from_slice(&vmac);
+        if self.control.dest_vaddr_present {
+            if let Some(vmac) = self.destination_vmac {
+                buf.extend_from_slice(&vmac);
+            }
         }
         buf.extend_from_slice(&self.payload);
         buf.freeze()
@@ -102,7 +113,9 @@ impl ScFrame {
         let mut pos = 4usize;
         let originating_vmac = if control.orig_vaddr_present {
             if buf.len() < pos + 6 {
-                return Err(BacnetError::DecodeError("SC frame: originating vMAC truncated".into()));
+                return Err(BacnetError::DecodeError(
+                    "SC frame: originating vMAC truncated".into(),
+                ));
             }
             let mut vmac = [0u8; 6];
             vmac.copy_from_slice(&buf[pos..pos + 6]);
@@ -113,7 +126,9 @@ impl ScFrame {
         };
         let destination_vmac = if control.dest_vaddr_present {
             if buf.len() < pos + 6 {
-                return Err(BacnetError::DecodeError("SC frame: destination vMAC truncated".into()));
+                return Err(BacnetError::DecodeError(
+                    "SC frame: destination vMAC truncated".into(),
+                ));
             }
             let mut vmac = [0u8; 6];
             vmac.copy_from_slice(&buf[pos..pos + 6]);
@@ -123,6 +138,13 @@ impl ScFrame {
             None
         };
         let payload = Bytes::copy_from_slice(&buf[pos..]);
-        Ok(Self { function, control, message_id, originating_vmac, destination_vmac, payload })
+        Ok(Self {
+            function,
+            control,
+            message_id,
+            originating_vmac,
+            destination_vmac,
+            payload,
+        })
     }
 }

@@ -13,6 +13,8 @@ use bacnet_object::{
 use bacnet_sim_engine::engine::SimEngine;
 use bacnet_stack::dispatcher::{ApduDispatcher, DeviceInfo};
 use bacnet_transport::ip::BacnetIpTransport;
+use bacnet_transport::sc::hub::ScHub;
+use bacnet_config::topology::TransportKind;
 use bacnet_types::{
     property_value::EngineeringUnits,
     DeviceId,
@@ -57,6 +59,26 @@ async fn main() -> anyhow::Result<()> {
         let config = bacnet_config::topology::SimulatorConfig::from_toml(&toml_str)
             .map_err(|e| anyhow::anyhow!("Failed to parse config: {e}"))?;
         info!(path = %path, "Loading topology from config file");
+        // Start transport(s) specified in the config
+        for net in &config.networks {
+            match net.transport {
+                TransportKind::BacnetSc => {
+                    let sc_bind: SocketAddr = net
+                        .bind
+                        .as_deref()
+                        .unwrap_or("0.0.0.0:47814")
+                        .parse()
+                        .unwrap_or_else(|_| "0.0.0.0:47814".parse().unwrap());
+                    match ScHub::start(sc_bind).await {
+                        Ok(hub) => info!(addr = %hub.local_addr(), "BACnet/SC hub listening"),
+                        Err(e) => tracing::error!("Failed to start SC hub: {e}"),
+                    }
+                }
+                TransportKind::BacnetIp | TransportKind::Mstp => {
+                    // BACnet/IP is started above; MS/TP virtual bus not yet wired here
+                }
+            }
+        }
         sim_engine =
             simulation_builder::build_simulation(&config, Arc::clone(&store), &mut dispatcher);
     } else {
