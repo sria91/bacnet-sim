@@ -1,8 +1,8 @@
 mod simulation_builder;
+mod hot_reload;
 
 use std::{net::SocketAddr, sync::Arc};
 use tracing::info;
-use tracing_subscriber::EnvFilter;
 
 use bacnet_object::{
     analog_input::AnalogInput,
@@ -19,6 +19,7 @@ use bacnet_types::{
     property_value::EngineeringUnits,
     DeviceId,
 };
+use bacnet_api::rest::AppState;
 
 const DEVICE_ID: u32 = 1234;
 const BACNET_PORT: u16 = 47808;
@@ -26,10 +27,33 @@ const API_PORT: u16 = 8080;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Structured logging — default to INFO, override with RUST_LOG
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive("info".parse()?))
-        .init();
+    // -----------------------------------------------------------------------
+    // Structured logging — default to INFO; --log-format=json for JSON output
+    // -----------------------------------------------------------------------
+    let log_format = std::env::args()
+        .find(|a| a.starts_with("--log-format="))
+        .map(|a| a.trim_start_matches("--log-format=").to_string())
+        .unwrap_or_else(|| "text".to_string());
+
+    match log_format.as_str() {
+        "json" => {
+            tracing_subscriber::fmt()
+                .json()
+                .with_env_filter(
+                    tracing_subscriber::EnvFilter::from_default_env()
+                        .add_directive("info".parse()?),
+                )
+                .init();
+        }
+        _ => {
+            tracing_subscriber::fmt()
+                .with_env_filter(
+                    tracing_subscriber::EnvFilter::from_default_env()
+                        .add_directive("info".parse()?),
+                )
+                .init();
+        }
+    }
 
     info!(version = env!("CARGO_PKG_VERSION"), "bacnet-sim starting");
 
@@ -39,9 +63,10 @@ async fn main() -> anyhow::Result<()> {
     let config_path = parse_config_arg();
 
     // -----------------------------------------------------------------------
-    // Object store
+    // Object store + API state
     // -----------------------------------------------------------------------
     let store = Arc::new(ObjectStore::new());
+    let api_state = AppState::new(Arc::clone(&store));
 
     let bind_addr: SocketAddr = format!("0.0.0.0:{BACNET_PORT}").parse()?;
     let transport = BacnetIpTransport::bind(bind_addr).await?;
@@ -52,9 +77,9 @@ async fn main() -> anyhow::Result<()> {
 
     let sim_engine: SimEngine;
 
-    if let Some(path) = config_path {
+    if let Some(ref path) = config_path {
         // ----- Config-driven mode -----
-        let toml_str = std::fs::read_to_string(&path)
+        let toml_str = std::fs::read_to_string(path)
             .map_err(|e| anyhow::anyhow!("Failed to read config file {path:?}: {e}"))?;
         let config = bacnet_config::topology::SimulatorConfig::from_toml(&toml_str)
             .map_err(|e| anyhow::anyhow!("Failed to parse config: {e}"))?;
@@ -77,6 +102,13 @@ async fn main() -> anyhow::Result<()> {
                 TransportKind::BacnetIp | TransportKind::Mstp => {
                     // BACnet/IP is started above; MS/TP virtual bus not yet wired here
                 }
+            }
+        }
+        // Register all device IDs so the REST API can enumerate them
+        for group in &config.devices {
+            for id in group.id_range[0]..=group.id_range[1] {
+                api_state.register_device(id).await;
+                dispatcher.register_device(DeviceInfo::new(id));
             }
         }
         sim_engine =
@@ -103,9 +135,9 @@ async fn main() -> anyhow::Result<()> {
         }
 
         dispatcher.register_device(DeviceInfo::new(DEVICE_ID));
+        api_state.register_device(DEVICE_ID).await;
 
         let (engine, cov_rx) = SimEngine::new(Arc::clone(&store), 1.0);
-        // Drain COV notifications so the channel doesn't block
         tokio::spawn(async move {
             let mut rx = cov_rx;
             while let Some(notif) = rx.recv().await {
@@ -121,10 +153,44 @@ async fn main() -> anyhow::Result<()> {
         info!(device_id = DEVICE_ID, "Demo mode: single device, 12 objects");
     }
 
+    // -----------------------------------------------------------------------
+    // Hot-reload watcher (config-driven mode only)
+    // -----------------------------------------------------------------------
+    if let Some(path) = config_path.clone() {
+        let store_ref = Arc::clone(&store);
+        tokio::spawn(async move {
+            hot_reload::watch(path, store_ref).await;
+        });
+    }
+
+    bacnet_api::metrics::set_objects(store.count() as f64);
+
     info!(
         total_objects = store.count(),
         "Object store ready",
     );
+
+    // -----------------------------------------------------------------------
+    // Background metrics refresh (every 15s)
+    // -----------------------------------------------------------------------
+    let tick_nanos = Arc::clone(&sim_engine.last_tick_nanos);
+    let cov_total = Arc::clone(&sim_engine.cov_notifications_total);
+    let tick_hz = sim_engine.tick_hz;
+    let store_m = Arc::clone(&store);
+    tokio::spawn(async move {
+        use std::sync::atomic::Ordering;
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(15));
+        loop {
+            interval.tick().await;
+            let nanos = tick_nanos.load(Ordering::Relaxed);
+            if nanos > 0 {
+                bacnet_api::metrics::observe_tick_duration(tick_hz, nanos as f64 / 1e9);
+            }
+            let cov = cov_total.load(Ordering::Relaxed);
+            bacnet_api::metrics::set_active_cov_subscriptions(cov as f64);
+            bacnet_api::metrics::set_objects(store_m.count() as f64);
+        }
+    });
 
     // -----------------------------------------------------------------------
     // APDU dispatcher
@@ -134,7 +200,7 @@ async fn main() -> anyhow::Result<()> {
     });
 
     // -----------------------------------------------------------------------
-    // Simulation engine — ticks value models at configured Hz
+    // Simulation engine
     // -----------------------------------------------------------------------
     let _engine_task = tokio::spawn(sim_engine.run());
 
@@ -143,7 +209,7 @@ async fn main() -> anyhow::Result<()> {
     // -----------------------------------------------------------------------
     let api_addr: SocketAddr = format!("0.0.0.0:{API_PORT}").parse()?;
     let _api_task = tokio::spawn(async move {
-        if let Err(e) = bacnet_api::rest::serve(api_addr).await {
+        if let Err(e) = bacnet_api::rest::serve(api_addr, api_state).await {
             tracing::error!("REST API error: {e}");
         }
     });
@@ -152,7 +218,7 @@ async fn main() -> anyhow::Result<()> {
     info!("Management API listening on http://0.0.0.0:{API_PORT}");
 
     // -----------------------------------------------------------------------
-    // Run transport (blocks until error) or Ctrl-C
+    // Run transport or Ctrl-C
     // -----------------------------------------------------------------------
     tokio::select! {
         _ = transport.run() => {

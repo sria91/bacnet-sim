@@ -1,10 +1,12 @@
-/// Simulation tick engine: drives value models, COV, and alarm engines.
-
-use bacnet_types::{DeviceId, ObjectId, PropertyIdentifier, PropertyValue};
 use bacnet_object::store::ObjectStore;
+/// Simulation tick engine: drives value models, COV, and alarm engines.
+use bacnet_types::{DeviceId, ObjectId, PropertyIdentifier, PropertyValue};
 use dashmap::DashMap;
 use rand::{rngs::SmallRng, SeedableRng};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
+};
 use std::time::{Duration, Instant, SystemTime};
 use tokio::sync::mpsc;
 use tokio::time::interval;
@@ -31,17 +33,26 @@ pub struct SimEngine {
     /// The key format mirrors `ObjectStore`'s internal shard key layout.
     models: DashMap<(u64, u64), ModelEntry>,
     pub cov_engine: Arc<CovEngine>,
+    /// Last tick duration in nanoseconds. Read by external metrics tasks.
+    pub last_tick_nanos: Arc<AtomicU64>,
+    /// Cumulative COV notifications dispatched.
+    pub cov_notifications_total: Arc<AtomicU64>,
 }
 
 impl SimEngine {
     /// Create a minimal engine with no value models.
-    pub fn new(store: Arc<ObjectStore>, tick_hz: f64) -> (Self, mpsc::UnboundedReceiver<CovNotification>) {
+    pub fn new(
+        store: Arc<ObjectStore>,
+        tick_hz: f64,
+    ) -> (Self, mpsc::UnboundedReceiver<CovNotification>) {
         let (cov_engine, cov_rx) = CovEngine::new();
         let engine = Self {
             store,
             tick_hz,
             models: DashMap::new(),
             cov_engine: Arc::new(cov_engine),
+            last_tick_nanos: Arc::new(AtomicU64::new(0)),
+            cov_notifications_total: Arc::new(AtomicU64::new(0)),
         };
         (engine, cov_rx)
     }
@@ -131,13 +142,20 @@ impl SimEngine {
             }
 
             // Process COV notifications outside the shard write locks.
+            let mut cov_sent = 0u64;
             for (dev, oid, val) in changed {
-                self.cov_engine.check_and_notify(
+                if self.cov_engine.check_and_notify(
                     dev,
                     oid,
                     PropertyIdentifier::PresentValue,
                     &PropertyValue::Real(val),
-                );
+                ) {
+                    cov_sent += 1;
+                }
+            }
+            if cov_sent > 0 {
+                self.cov_notifications_total
+                    .fetch_add(cov_sent, Ordering::Relaxed);
             }
 
             // Periodically expire stale COV subscriptions.
@@ -150,6 +168,8 @@ impl SimEngine {
             }
 
             let elapsed = tick_start.elapsed();
+            self.last_tick_nanos
+                .store(elapsed.as_nanos() as u64, Ordering::Relaxed);
             if elapsed > period {
                 tracing::warn!(
                     "Tick loop behind schedule: took {:.1}ms, budget {:.1}ms",
@@ -173,13 +193,16 @@ fn obj_key(device: DeviceId, obj: ObjectId) -> (u64, u64) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bacnet_types::{DeviceId, ObjectId, ObjectType};
     use crate::value_model::ConstantModel;
+    use bacnet_types::{DeviceId, ObjectId, ObjectType};
 
     #[test]
     fn obj_key_deterministic() {
         let dev = DeviceId(42);
-        let oid = ObjectId { object_type: ObjectType::AnalogInput, instance: 7 };
+        let oid = ObjectId {
+            object_type: ObjectType::AnalogInput,
+            instance: 7,
+        };
         let (dk, ok) = obj_key(dev, oid);
         assert_eq!(dk, 42);
         // AnalogInput = 0, so ok = (0 << 22) | 7 = 7
@@ -191,7 +214,10 @@ mod tests {
         let store = Arc::new(ObjectStore::new());
         let (engine, _rx) = SimEngine::new(store, 1.0);
         let dev = DeviceId(1);
-        let oid = ObjectId { object_type: ObjectType::AnalogInput, instance: 1 };
+        let oid = ObjectId {
+            object_type: ObjectType::AnalogInput,
+            instance: 1,
+        };
         engine.add_model(dev, oid, Box::new(ConstantModel(42.0)), 0.1, None, 0);
         assert_eq!(engine.models.len(), 1);
     }

@@ -66,7 +66,8 @@ serde_json = "1"
 toml = "0.8"
 
 # HTTP / gRPC
-axum = "0.7"
+axum = { version = "0.7", features = ["macros"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
 tonic = "0.12"
 prost = "0.13"
 
@@ -74,6 +75,11 @@ prost = "0.13"
 prometheus = "0.13"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Config hot-reload
+notify = { version = "6", default-features = false, features = [
+    "macos_kqueue",
+] }
 
 # Scripting
 rhai = "1"

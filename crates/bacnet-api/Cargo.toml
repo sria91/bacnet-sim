@@ -13,6 +13,7 @@ bacnet-sim-engine = { workspace = true }
 bacnet-config = { workspace = true }
 tokio = { workspace = true }
 axum = { workspace = true }
+tower-http = { workspace = true }
 tonic = { workspace = true }
 prost = { workspace = true }
 prometheus = { workspace = true }
@@ -20,3 +21,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 thiserror = "1"
+
+[dev-dependencies]
+tower = { version = "0.4", features = ["util"] }
+http-body-util = "0.1"

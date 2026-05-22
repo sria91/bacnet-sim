@@ -1,5 +1,4 @@
 /// COV (Change of Value) subscription manager.
-
 use bacnet_types::{DeviceId, NetworkAddress, ObjectId, PropertyIdentifier, PropertyValue};
 use dashmap::DashMap;
 use std::sync::Arc;
@@ -71,8 +70,9 @@ impl CovEngine {
         object_id: ObjectId,
         property_id: PropertyIdentifier,
         new_value: &PropertyValue,
-    ) {
+    ) -> bool {
         let now = Instant::now();
+        let mut notified = false;
         for mut entry in self.subscriptions.iter_mut() {
             // Clone key fields before any mutable access to the value.
             let (sub_addr, sub_pid, key_dev, key_oid) = {
@@ -107,8 +107,10 @@ impl CovEngine {
                     confirmed,
                 };
                 let _ = self.notify_tx.send(notif);
+                notified = true;
             }
         }
+        notified
     }
 
     /// Remove expired subscriptions; returns the count removed.
