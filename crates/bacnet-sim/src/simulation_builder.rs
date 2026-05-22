@@ -2,30 +2,20 @@
 ///
 /// Reads a `SimulatorConfig` and instantiates the full device/object tree into
 /// an `ObjectStore`, optionally registering value models with a `SimEngine`.
-
 use std::sync::Arc;
 
 use bacnet_config::topology::{ModelParams, ObjectConfig, ProfileConfig, SimulatorConfig};
 use bacnet_object::{
-    analog_input::AnalogInput,
-    analog_output::AnalogOutput,
-    analog_value::AnalogValue,
-    binary_input::BinaryInput,
-    binary_output::BinaryOutput,
-    binary_value::BinaryValue,
-    device::DeviceObject,
-    multistate::MultiStateInput,
-    property::BacnetObject,
-    store::ObjectStore,
+    analog_input::AnalogInput, analog_output::AnalogOutput, analog_value::AnalogValue,
+    binary_input::BinaryInput, binary_output::BinaryOutput, binary_value::BinaryValue,
+    device::DeviceObject, multistate::MultiStateInput, property::BacnetObject, store::ObjectStore,
 };
 use bacnet_sim_engine::{
     engine::SimEngine,
-    value_model::{
-        ConstantModel, RandomWalkModel, SineModel, StepModel, ThermalModel, ValueModel,
-    },
+    value_model::{ConstantModel, RandomWalkModel, SineModel, StepModel, ThermalModel, ValueModel},
 };
 use bacnet_stack::dispatcher::{ApduDispatcher, DeviceInfo};
-use bacnet_types::{property_value::EngineeringUnits, DeviceId};
+use bacnet_types::{property_value::EngineeringUnits, DeviceId, ObjectId, ObjectType};
 use tracing::info;
 
 /// Build an entire simulation from a parsed `SimulatorConfig`.
@@ -57,8 +47,25 @@ pub fn build_simulation(
         for device_instance in lo..=hi {
             let dev_id = DeviceId(device_instance);
 
-            // Device object
-            let dev_obj = DeviceObject::new(dev_id, format!("device-{device_instance}"));
+            // Build object_list: device itself + every object the profile will create
+            let mut object_list = vec![ObjectId {
+                object_type: ObjectType::Device,
+                instance: device_instance,
+            }];
+            for obj_cfg in &profile.objects {
+                if let Some(obj_type) = parse_object_type(&obj_cfg.object_type) {
+                    for i in 1..=obj_cfg.count {
+                        object_list.push(ObjectId {
+                            object_type: obj_type,
+                            instance: i,
+                        });
+                    }
+                }
+            }
+
+            // Device object (with populated object_list)
+            let mut dev_obj = DeviceObject::new(dev_id, format!("device-{device_instance}"));
+            dev_obj.object_list = object_list;
             batch.push((dev_id, Box::new(dev_obj)));
 
             // Objects from profile
@@ -71,7 +78,10 @@ pub fn build_simulation(
 
     let total = batch.len();
     store.bulk_insert(batch);
-    info!(objects = total, "Bulk-inserted objects from topology config");
+    info!(
+        objects = total,
+        "Bulk-inserted objects from topology config"
+    );
 
     engine
 }
@@ -86,7 +96,12 @@ fn add_profile_objects(
             let name = format!("{}-{i:03}", obj_cfg.name_prefix);
             let units = parse_units(obj_cfg.units.as_deref());
 
-            match obj_cfg.object_type.to_lowercase().replace([' ', '-'], "_").as_str() {
+            match obj_cfg
+                .object_type
+                .to_lowercase()
+                .replace([' ', '-'], "_")
+                .as_str()
+            {
                 "analoginput" | "analog_input" => {
                     batch.push((dev_id, Box::new(AnalogInput::new(dev_id, i, &name, units))));
                 }
@@ -114,6 +129,20 @@ fn add_profile_objects(
                 }
             }
         }
+    }
+}
+
+/// Map a profile object-type string to `ObjectType`.
+fn parse_object_type(s: &str) -> Option<ObjectType> {
+    match s.to_lowercase().replace([' ', '-'], "_").as_str() {
+        "analoginput" | "analog_input" => Some(ObjectType::AnalogInput),
+        "analogoutput" | "analog_output" => Some(ObjectType::AnalogOutput),
+        "analogvalue" | "analog_value" => Some(ObjectType::AnalogValue),
+        "binaryinput" | "binary_input" => Some(ObjectType::BinaryInput),
+        "binaryoutput" | "binary_output" => Some(ObjectType::BinaryOutput),
+        "binaryvalue" | "binary_value" => Some(ObjectType::BinaryValue),
+        "multistateinput" | "multistate_input" | "msi" => Some(ObjectType::MultiStateInput),
+        _ => None,
     }
 }
 
@@ -199,7 +228,10 @@ mod tests {
             },
         );
         SimulatorConfig {
-            simulator: SimulatorSection { tick_hz: 1.0, seed: Some(42) },
+            simulator: SimulatorSection {
+                tick_hz: 1.0,
+                seed: Some(42),
+            },
             networks: vec![NetworkConfig {
                 id: 1,
                 transport: TransportKind::BacnetIp,
@@ -239,8 +271,14 @@ mod tests {
 
     #[test]
     fn parse_units_case_insensitive() {
-        assert_eq!(parse_units(Some("DegreesCelsius")), EngineeringUnits::DegreesCelsius);
-        assert_eq!(parse_units(Some("celsius")), EngineeringUnits::DegreesCelsius);
+        assert_eq!(
+            parse_units(Some("DegreesCelsius")),
+            EngineeringUnits::DegreesCelsius
+        );
+        assert_eq!(
+            parse_units(Some("celsius")),
+            EngineeringUnits::DegreesCelsius
+        );
         assert_eq!(parse_units(Some("percent")), EngineeringUnits::Percent);
         assert_eq!(parse_units(None), EngineeringUnits::NoUnits);
     }

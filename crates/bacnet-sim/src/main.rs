@@ -13,7 +13,7 @@ use bacnet_sim_engine::engine::SimEngine;
 use bacnet_stack::dispatcher::{ApduDispatcher, DeviceInfo};
 use bacnet_transport::ip::BacnetIpTransport;
 use bacnet_transport::sc::hub::ScHub;
-use bacnet_types::{property_value::EngineeringUnits, DeviceId};
+use bacnet_types::{property_value::EngineeringUnits, DeviceId, ObjectId, ObjectType};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -142,7 +142,19 @@ async fn main() -> anyhow::Result<()> {
         // ----- Demo mode: single device with 8 AI + 4 BI -----
         let device_id = DeviceId(demo_device_id);
 
-        let device_obj = DeviceObject::new(device_id, "bacnet-sim-device");
+        let mut device_obj = DeviceObject::new(device_id, "bacnet-sim-device");
+        for i in 1..=8u32 {
+            device_obj.object_list.push(ObjectId {
+                object_type: ObjectType::AnalogInput,
+                instance: i,
+            });
+        }
+        for i in 1..=4u32 {
+            device_obj.object_list.push(ObjectId {
+                object_type: ObjectType::BinaryInput,
+                instance: i,
+            });
+        }
         store.insert(device_id, Box::new(device_obj));
 
         for i in 1..=8u32 {

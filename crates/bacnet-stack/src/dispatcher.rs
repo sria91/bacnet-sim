@@ -20,7 +20,7 @@ use bacnet_codec::{
 use bacnet_object::store::ObjectStore;
 use bacnet_types::{
     error::{BacnetError, ErrorClass, ErrorCode},
-    DeviceId, NetworkAddress,
+    DeviceId, NetworkAddress, ObjectType,
 };
 use bytes::BytesMut;
 use tokio::sync::{broadcast, mpsc};
@@ -68,6 +68,9 @@ impl DeviceInfo {
 pub struct ApduDispatcher {
     devices: HashMap<u32, DeviceInfo>,
     store: Arc<ObjectStore>,
+    /// Maps a client's source address to the last Device-object it accessed.
+    /// Used to route subsequent non-Device object reads to the correct device.
+    source_device_map: tokio::sync::RwLock<HashMap<NetworkAddress, DeviceId>>,
 }
 
 impl ApduDispatcher {
@@ -75,6 +78,7 @@ impl ApduDispatcher {
         Self {
             devices: HashMap::new(),
             store,
+            source_device_map: tokio::sync::RwLock::new(HashMap::new()),
         }
     }
 
@@ -219,23 +223,72 @@ impl ApduDispatcher {
     // Confirmed handlers
     // -----------------------------------------------------------------------
 
+    /// Determine which device a confirmed request is targeting.
+    ///
+    /// Routing rules (in order):
+    /// 1. If the requested object is a Device object, its instance number IS
+    ///    the device ID.  Cache the source→device association for rule 2.
+    /// 2. For non-Device objects look up the cached device for this source
+    ///    address (set by a prior Device-object read from the same client).
+    /// 3. Fall back to the single registered device (demo-mode compat).
+    async fn resolve_device(
+        &self,
+        req: &ConfirmedRequest,
+        src: NetworkAddress,
+    ) -> Result<DeviceId, BacnetError> {
+        // Extract the primary object identifier from the request.
+        let target_oid = match &req.service {
+            ConfirmedServiceRequest::ReadProperty(r) => r.object_id,
+            ConfirmedServiceRequest::WriteProperty(w) => w.object_id,
+            ConfirmedServiceRequest::ReadPropertyMultiple(specs) => specs
+                .first()
+                .map(|s| s.0)
+                .ok_or(BacnetError::UnknownObject)?,
+            // SubscribeCOV etc. — fall back
+            _ => {
+                return self
+                    .devices
+                    .values()
+                    .next()
+                    .map(|d| d.device_id)
+                    .ok_or(BacnetError::UnknownObject);
+            }
+        };
+
+        if target_oid.object_type == ObjectType::Device {
+            let dev_id = target_oid.instance;
+            if self.devices.contains_key(&dev_id) {
+                // Cache: next read from this source for a non-Device object
+                // will be routed to the same device.
+                self.source_device_map
+                    .write()
+                    .await
+                    .insert(src, DeviceId(dev_id));
+                return Ok(DeviceId(dev_id));
+            }
+            return Err(BacnetError::UnknownObject);
+        }
+
+        // Non-Device object: use the session-cached device for this source.
+        if let Some(&cached) = self.source_device_map.read().await.get(&src) {
+            return Ok(cached);
+        }
+
+        // No session yet — fall back to the first registered device.
+        self.devices
+            .values()
+            .next()
+            .map(|d| d.device_id)
+            .ok_or(BacnetError::UnknownObject)
+    }
+
     async fn handle_confirmed(
         &self,
         req: ConfirmedRequest,
         src: NetworkAddress,
         outbound: mpsc::Sender<OutboundFrame>,
     ) -> Result<(), BacnetError> {
-        // Find the target device.  In standard BACnet/IP each device has its
-        // own IP address.  For the simulator we pick the single registered
-        // device when there is only one, or the first otherwise.  Proper
-        // multi-device routing is addressed in Phase 4.
-        let dev = self
-            .devices
-            .values()
-            .next()
-            .ok_or(BacnetError::UnknownObject)?;
-
-        let device_id = dev.device_id;
+        let device_id = self.resolve_device(&req, src).await?;
         let invoke_id = req.invoke_id;
 
         let result: Option<BytesMut> = match req.service {
