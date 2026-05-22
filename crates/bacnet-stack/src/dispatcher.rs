@@ -187,12 +187,21 @@ impl ApduDispatcher {
                     ) {
                         let mut buf = BytesMut::new();
                         iam.encode(&mut buf);
-                        let npdu_bytes = Npdu::encode_local(false, &buf).to_vec();
-                        // I-Am is broadcast
+                        let npdu = bytes::Bytes::from(Npdu::encode_local(false, &buf).to_vec());
+                        // I-Am broadcast (spec-required for network-wide discovery)
                         let _ = outbound
                             .send(OutboundFrame {
                                 dst: Destination::Broadcast { network_number: 0 },
-                                npdu: bytes::Bytes::from(npdu_bytes),
+                                npdu: npdu.clone(),
+                            })
+                            .await;
+                        // I-Am unicast to requester — ensures delivery when client and
+                        // simulator share the same host (OS only delivers limited-broadcast
+                        // to one of multiple sockets bound to port 47808).
+                        let _ = outbound
+                            .send(OutboundFrame {
+                                dst: Destination::Unicast(src),
+                                npdu,
                             })
                             .await;
                         info!(device_id = dev.device_id.0, "I-Am sent");
