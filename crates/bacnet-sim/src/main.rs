@@ -8,11 +8,12 @@ use bacnet_object::{
     device::DeviceObject,
     store::ObjectStore,
 };
+use bacnet_sim_engine::engine::SimEngine;
 use bacnet_stack::dispatcher::{ApduDispatcher, DeviceInfo};
 use bacnet_transport::ip::BacnetIpTransport;
 use bacnet_types::{
     property_value::EngineeringUnits,
-    DeviceId, ObjectId, ObjectType,
+    DeviceId,
 };
 
 const DEVICE_ID: u32 = 1234;
@@ -73,6 +74,23 @@ async fn main() -> anyhow::Result<()> {
     let dispatch_task = tokio::spawn(async move {
         dispatcher.run(inbound_rx, outbound_tx).await;
     });
+
+    // -----------------------------------------------------------------------
+    // Simulation engine — ticks value models at 1 Hz
+    // -----------------------------------------------------------------------
+    let (sim_engine, cov_rx) = SimEngine::new(Arc::clone(&store), 1.0);
+    let _cov_drain = tokio::spawn(async move {
+        let mut cov_rx = cov_rx;
+        while let Some(notif) = cov_rx.recv().await {
+            tracing::debug!(
+                device = notif.device_id.0,
+                object = ?notif.object_id,
+                props = notif.changed_properties.len(),
+                "COV notification"
+            );
+        }
+    });
+    let _engine_task = tokio::spawn(sim_engine.run());
 
     // -----------------------------------------------------------------------
     // Management REST API

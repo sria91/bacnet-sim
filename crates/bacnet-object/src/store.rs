@@ -58,6 +58,15 @@ impl<'a> ObjectWriteGuard<'a> {
     ) -> Result<(), BacnetError> {
         self.0.get_mut(&self.1).unwrap().write_property(property_id, array_index, value, priority)
     }
+
+    /// Simulation-internal write, bypasses out-of-service guards.
+    pub fn force_write_property(
+        &mut self,
+        property_id: bacnet_types::PropertyIdentifier,
+        value: bacnet_types::PropertyValue,
+    ) -> Result<(), BacnetError> {
+        self.0.get_mut(&self.1).unwrap().force_write_property(property_id, value)
+    }
 }
 
 fn shard_key(device: DeviceId, obj: ObjectId) -> (usize, u64, u64) {
@@ -114,4 +123,25 @@ impl ObjectRef {
     pub fn write_guard(&mut self) -> ObjectWriteGuard<'_> {
         ObjectWriteGuard(self.0.write(), (self.1, self.2))
     }
+
+    /// Convenience: write a single property without needing a separate guard.
+    pub fn write_property_once(
+        mut self,
+        property_id: bacnet_types::PropertyIdentifier,
+        array_index: Option<u32>,
+        value: bacnet_types::PropertyValue,
+        priority: Option<u8>,
+    ) -> Result<(), BacnetError> {
+        self.write_guard().write_property(property_id, array_index, value, priority)
+    }
+
+    /// Simulation-internal write; bypasses out-of-service guards.
+    pub fn force_write_property_once(
+        mut self,
+        property_id: bacnet_types::PropertyIdentifier,
+        value: bacnet_types::PropertyValue,
+    ) -> Result<(), BacnetError> {
+        self.write_guard().force_write_property(property_id, value)
+    }
 }
+
