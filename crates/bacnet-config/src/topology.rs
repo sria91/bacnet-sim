@@ -56,6 +56,22 @@ pub struct ObjectConfig {
     pub name_prefix: String,
     pub units: Option<String>,
     pub model: Option<String>,
+    /// Optional model parameters.
+    #[serde(default)]
+    pub model_params: ModelParams,
+}
+
+/// Simple flat model parameters (all optional with sensible defaults).
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ModelParams {
+    pub amplitude: Option<f32>,
+    pub period_s: Option<f64>,
+    pub offset: Option<f32>,
+    pub noise_std: Option<f32>,
+    pub step_std: Option<f32>,
+    pub min: Option<f32>,
+    pub max: Option<f32>,
+    pub value: Option<f32>,
 }
 
 impl SimulatorConfig {

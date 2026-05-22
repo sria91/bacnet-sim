@@ -1,3 +1,5 @@
+mod simulation_builder;
+
 use std::{net::SocketAddr, sync::Arc};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -30,66 +32,88 @@ async fn main() -> anyhow::Result<()> {
     info!(version = env!("CARGO_PKG_VERSION"), "bacnet-sim starting");
 
     // -----------------------------------------------------------------------
-    // Object store — create device + a handful of demo objects
+    // Parse optional --config <path> argument
+    // -----------------------------------------------------------------------
+    let config_path = parse_config_arg();
+
+    // -----------------------------------------------------------------------
+    // Object store
     // -----------------------------------------------------------------------
     let store = Arc::new(ObjectStore::new());
-    let device_id = DeviceId(DEVICE_ID);
 
-    let device_obj = DeviceObject::new(device_id, "bacnet-sim-device");
-    store.insert(device_id, Box::new(device_obj));
-
-    for i in 1..=8u32 {
-        let ai = AnalogInput::new(
-            device_id,
-            i,
-            format!("AI-{i:02}"),
-            EngineeringUnits::DegreesCelsius,
-        );
-        store.insert(device_id, Box::new(ai));
-    }
-    for i in 1..=4u32 {
-        let bi = BinaryInput::new(device_id, i, format!("BI-{i:02}"));
-        store.insert(device_id, Box::new(bi));
-    }
-
-    info!(
-        device_id = DEVICE_ID,
-        "Object store initialised",
-    );
-
-    // -----------------------------------------------------------------------
-    // BACnet/IP transport
-    // -----------------------------------------------------------------------
     let bind_addr: SocketAddr = format!("0.0.0.0:{BACNET_PORT}").parse()?;
     let transport = BacnetIpTransport::bind(bind_addr).await?;
     let inbound_rx = transport.subscribe();
     let outbound_tx = transport.sender();
 
+    let mut dispatcher = ApduDispatcher::new(Arc::clone(&store));
+
+    let sim_engine: SimEngine;
+
+    if let Some(path) = config_path {
+        // ----- Config-driven mode -----
+        let toml_str = std::fs::read_to_string(&path)
+            .map_err(|e| anyhow::anyhow!("Failed to read config file {path:?}: {e}"))?;
+        let config = bacnet_config::topology::SimulatorConfig::from_toml(&toml_str)
+            .map_err(|e| anyhow::anyhow!("Failed to parse config: {e}"))?;
+        info!(path = %path, "Loading topology from config file");
+        sim_engine =
+            simulation_builder::build_simulation(&config, Arc::clone(&store), &mut dispatcher);
+    } else {
+        // ----- Demo mode: single device with 8 AI + 4 BI -----
+        let device_id = DeviceId(DEVICE_ID);
+
+        let device_obj = DeviceObject::new(device_id, "bacnet-sim-device");
+        store.insert(device_id, Box::new(device_obj));
+
+        for i in 1..=8u32 {
+            let ai = AnalogInput::new(
+                device_id,
+                i,
+                format!("AI-{i:02}"),
+                EngineeringUnits::DegreesCelsius,
+            );
+            store.insert(device_id, Box::new(ai));
+        }
+        for i in 1..=4u32 {
+            let bi = BinaryInput::new(device_id, i, format!("BI-{i:02}"));
+            store.insert(device_id, Box::new(bi));
+        }
+
+        dispatcher.register_device(DeviceInfo::new(DEVICE_ID));
+
+        let (engine, cov_rx) = SimEngine::new(Arc::clone(&store), 1.0);
+        // Drain COV notifications so the channel doesn't block
+        tokio::spawn(async move {
+            let mut rx = cov_rx;
+            while let Some(notif) = rx.recv().await {
+                tracing::debug!(
+                    device = notif.device_id.0,
+                    object = ?notif.object_id,
+                    "COV notification"
+                );
+            }
+        });
+        sim_engine = engine;
+
+        info!(device_id = DEVICE_ID, "Demo mode: single device, 12 objects");
+    }
+
+    info!(
+        total_objects = store.count(),
+        "Object store ready",
+    );
+
     // -----------------------------------------------------------------------
     // APDU dispatcher
     // -----------------------------------------------------------------------
-    let mut dispatcher = ApduDispatcher::new(Arc::clone(&store));
-    dispatcher.register_device(DeviceInfo::new(DEVICE_ID));
-
     let dispatch_task = tokio::spawn(async move {
         dispatcher.run(inbound_rx, outbound_tx).await;
     });
 
     // -----------------------------------------------------------------------
-    // Simulation engine — ticks value models at 1 Hz
+    // Simulation engine — ticks value models at configured Hz
     // -----------------------------------------------------------------------
-    let (sim_engine, cov_rx) = SimEngine::new(Arc::clone(&store), 1.0);
-    let _cov_drain = tokio::spawn(async move {
-        let mut cov_rx = cov_rx;
-        while let Some(notif) = cov_rx.recv().await {
-            tracing::debug!(
-                device = notif.device_id.0,
-                object = ?notif.object_id,
-                props = notif.changed_properties.len(),
-                "COV notification"
-            );
-        }
-    });
     let _engine_task = tokio::spawn(sim_engine.run());
 
     // -----------------------------------------------------------------------
@@ -121,3 +145,16 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Extract `--config <path>` from process arguments, if present.
+fn parse_config_arg() -> Option<String> {
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
+        if arg == "--config" {
+            return args.next();
+        }
+        if let Some(path) = arg.strip_prefix("--config=") {
+            return Some(path.to_string());
+        }
+    }
+    None
+}

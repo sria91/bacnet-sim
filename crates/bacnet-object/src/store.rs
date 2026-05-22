@@ -1,6 +1,5 @@
 /// Sharded object store for millions of BACnet objects.
-
-use bacnet_types::{DeviceId, ObjectId, error::BacnetError};
+use bacnet_types::{error::BacnetError, DeviceId, ObjectId};
 use parking_lot::RwLock;
 use rustc_hash::FxHasher;
 use std::collections::HashMap;
@@ -21,16 +20,23 @@ pub struct ObjectStore {
 pub struct ObjectRef(Arc<Shard>, u64, u64);
 
 impl ObjectRef {
-    pub fn read(&self) -> parking_lot::RwLockReadGuard<'_, HashMap<(u64, u64), Box<dyn BacnetObject>>> {
+    pub fn read(
+        &self,
+    ) -> parking_lot::RwLockReadGuard<'_, HashMap<(u64, u64), Box<dyn BacnetObject>>> {
         self.0.read()
     }
-    pub fn write(&self) -> parking_lot::RwLockWriteGuard<'_, HashMap<(u64, u64), Box<dyn BacnetObject>>> {
+    pub fn write(
+        &self,
+    ) -> parking_lot::RwLockWriteGuard<'_, HashMap<(u64, u64), Box<dyn BacnetObject>>> {
         self.0.write()
     }
 }
 
 // Convenience: make it easy to call obj methods through the guard
-pub struct ObjectReadGuard<'a>(parking_lot::RwLockReadGuard<'a, HashMap<(u64, u64), Box<dyn BacnetObject>>>, (u64, u64));
+pub struct ObjectReadGuard<'a>(
+    parking_lot::RwLockReadGuard<'a, HashMap<(u64, u64), Box<dyn BacnetObject>>>,
+    (u64, u64),
+);
 
 impl<'a> ObjectReadGuard<'a> {
     pub fn read_property(
@@ -41,12 +47,20 @@ impl<'a> ObjectReadGuard<'a> {
         self.0[&self.1].read_property(property_id, array_index)
     }
 
-    pub fn all_properties(&self) -> Vec<(bacnet_types::PropertyIdentifier, bacnet_types::PropertyValue)> {
+    pub fn all_properties(
+        &self,
+    ) -> Vec<(
+        bacnet_types::PropertyIdentifier,
+        bacnet_types::PropertyValue,
+    )> {
         self.0[&self.1].all_properties()
     }
 }
 
-pub struct ObjectWriteGuard<'a>(parking_lot::RwLockWriteGuard<'a, HashMap<(u64, u64), Box<dyn BacnetObject>>>, (u64, u64));
+pub struct ObjectWriteGuard<'a>(
+    parking_lot::RwLockWriteGuard<'a, HashMap<(u64, u64), Box<dyn BacnetObject>>>,
+    (u64, u64),
+);
 
 impl<'a> ObjectWriteGuard<'a> {
     pub fn write_property(
@@ -56,7 +70,10 @@ impl<'a> ObjectWriteGuard<'a> {
         value: bacnet_types::PropertyValue,
         priority: Option<u8>,
     ) -> Result<(), BacnetError> {
-        self.0.get_mut(&self.1).unwrap().write_property(property_id, array_index, value, priority)
+        self.0
+            .get_mut(&self.1)
+            .unwrap()
+            .write_property(property_id, array_index, value, priority)
     }
 
     /// Simulation-internal write, bypasses out-of-service guards.
@@ -65,7 +82,10 @@ impl<'a> ObjectWriteGuard<'a> {
         property_id: bacnet_types::PropertyIdentifier,
         value: bacnet_types::PropertyValue,
     ) -> Result<(), BacnetError> {
-        self.0.get_mut(&self.1).unwrap().force_write_property(property_id, value)
+        self.0
+            .get_mut(&self.1)
+            .unwrap()
+            .force_write_property(property_id, value)
     }
 }
 
@@ -91,6 +111,36 @@ impl ObjectStore {
         let oid = obj.object_id();
         let (shard_idx, dk, ok) = shard_key(device, oid);
         self.shards[shard_idx].write().insert((dk, ok), obj);
+    }
+
+    /// Bulk-insert objects with minimal lock contention: groups insertions by
+    /// shard so each shard lock is acquired at most once.
+    pub fn bulk_insert(&self, objects: Vec<(DeviceId, Box<dyn BacnetObject>)>) {
+        // Bucket each object into its target shard (no heap alloc per empty bucket).
+        let mut by_shard: Vec<Vec<(u64, u64, Box<dyn BacnetObject>)>> =
+            (0..NUM_SHARDS).map(|_| Vec::new()).collect();
+
+        for (dev, obj) in objects {
+            let oid = obj.object_id();
+            let (shard, dk, ok) = shard_key(dev, oid);
+            by_shard[shard].push((dk, ok, obj));
+        }
+
+        // Insert each bucket under one lock acquisition per shard.
+        for (shard_idx, items) in by_shard.into_iter().enumerate() {
+            if items.is_empty() {
+                continue;
+            }
+            let mut guard = self.shards[shard_idx].write();
+            for (dk, ok, obj) in items {
+                guard.insert((dk, ok), obj);
+            }
+        }
+    }
+
+    /// Total number of objects across all shards.
+    pub fn count(&self) -> usize {
+        self.shards.iter().map(|s| s.read().len()).sum()
     }
 
     /// Returns `Some(shard_arc)` that can be locked to access the object.
@@ -132,7 +182,8 @@ impl ObjectRef {
         value: bacnet_types::PropertyValue,
         priority: Option<u8>,
     ) -> Result<(), BacnetError> {
-        self.write_guard().write_property(property_id, array_index, value, priority)
+        self.write_guard()
+            .write_property(property_id, array_index, value, priority)
     }
 
     /// Simulation-internal write; bypasses out-of-service guards.
@@ -144,4 +195,3 @@ impl ObjectRef {
         self.write_guard().force_write_property(property_id, value)
     }
 }
-
