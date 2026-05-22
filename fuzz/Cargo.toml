@@ -1,0 +1,52 @@
+[package]
+name = "bacnet-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+bacnet-codec = { path = "../crates/bacnet-codec" }
+bacnet-types = { path = "../crates/bacnet-types" }
+
+# Prevent this target from being included in normal workspace builds.
+[workspace]
+
+[[bin]]
+name = "fuzz_bvll_decode"
+path = "fuzz_targets/fuzz_bvll_decode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_apdu_decode"
+path = "fuzz_targets/fuzz_apdu_decode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_npdu_decode"
+path = "fuzz_targets/fuzz_npdu_decode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_mstp_decode"
+path = "fuzz_targets/fuzz_mstp_decode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_sc_decode"
+path = "fuzz_targets/fuzz_sc_decode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_property_value_decode"
+path = "fuzz_targets/fuzz_property_value_decode.rs"
+test = false
+doc = false
