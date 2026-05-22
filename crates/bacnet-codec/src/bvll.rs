@@ -1,7 +1,6 @@
 /// BACnet/IP BVLL (BACnet Virtual Link Layer) frame codec.
 ///
 /// References: ASHRAE 135-2020 Annex J.
-
 use bacnet_types::error::BacnetError;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use std::net::SocketAddrV4;
@@ -11,15 +10,24 @@ pub const BVLL_TYPE: u8 = 0x81;
 /// All BVLL function codes the simulator needs to handle.
 #[derive(Debug, Clone, PartialEq)]
 pub enum BvllFrame {
-    BvlcResult { result_code: u16 },
+    BvlcResult {
+        result_code: u16,
+    },
     WriteBroadcastDistributionTable(Vec<BdtEntry>),
     ReadBroadcastDistributionTable,
     ReadBroadcastDistributionTableAck(Vec<BdtEntry>),
-    ForwardedNpdu { originating_address: SocketAddrV4, npdu: Bytes },
-    RegisterForeignDevice { ttl: u16 },
+    ForwardedNpdu {
+        originating_address: SocketAddrV4,
+        npdu: Bytes,
+    },
+    RegisterForeignDevice {
+        ttl: u16,
+    },
     ReadForeignDeviceTable,
     ReadForeignDeviceTableAck(Vec<FdtEntry>),
-    DeleteForeignDeviceTableEntry { address: SocketAddrV4 },
+    DeleteForeignDeviceTableEntry {
+        address: SocketAddrV4,
+    },
     DistributeBroadcastToNetwork(Bytes),
     OriginalUnicastNpdu(Bytes),
     OriginalBroadcastNpdu(Bytes),
@@ -60,7 +68,10 @@ impl BvllFrame {
                 buf.put_u16(6);
                 buf.put_u16(*ttl);
             }
-            Self::ForwardedNpdu { originating_address, npdu } => {
+            Self::ForwardedNpdu {
+                originating_address,
+                npdu,
+            } => {
                 buf.put_u8(0x0A);
                 let len = (4 + 6 + npdu.len()) as u16;
                 buf.put_u16(len);
@@ -89,7 +100,10 @@ impl BvllFrame {
             return Err(BacnetError::DecodeError("BVLL frame too short".into()));
         }
         if buf[0] != BVLL_TYPE {
-            return Err(BacnetError::DecodeError(format!("not a BVLL frame: {:#02x}", buf[0])));
+            return Err(BacnetError::DecodeError(format!(
+                "not a BVLL frame: {:#02x}",
+                buf[0]
+            )));
         }
         let function = buf[1];
         let length = u16::from_be_bytes([buf[2], buf[3]]) as usize;
@@ -102,12 +116,23 @@ impl BvllFrame {
                 if payload.len() < 2 {
                     return Err(BacnetError::DecodeError("BvlcResult too short".into()));
                 }
-                Ok(Self::BvlcResult { result_code: u16::from_be_bytes([payload[0], payload[1]]) })
+                Ok(Self::BvlcResult {
+                    result_code: u16::from_be_bytes([payload[0], payload[1]]),
+                })
             }
             0x0A => {
-                // ForwardedNpdu: 6-byte originator, then NPDU
+                // ForwardedNpdu: 4-byte IP + 2-byte port = 6-byte originator, then NPDU.
+                // Minimum valid total frame length = 4 (header) + 6 (originator) = 10.
+                if length < 10 {
+                    return Err(BacnetError::DecodeError(format!(
+                        "ForwardedNpdu too short: BVLL length field is {length}, need at least 10"
+                    )));
+                }
                 if payload.len() < 6 {
-                    return Err(BacnetError::DecodeError("ForwardedNpdu too short".into()));
+                    return Err(BacnetError::DecodeError(format!(
+                        "ForwardedNpdu truncated: payload is {} bytes, need at least 6 for originator address",
+                        payload.len()
+                    )));
                 }
                 let ip = std::net::Ipv4Addr::new(payload[0], payload[1], payload[2], payload[3]);
                 let port = u16::from_be_bytes([payload[4], payload[5]]);
@@ -120,16 +145,22 @@ impl BvllFrame {
             0x0B => {
                 // RegisterForeignDevice: 2-byte TTL
                 if payload.len() < 2 {
-                    return Err(BacnetError::DecodeError("RegisterForeignDevice too short".into()));
+                    return Err(BacnetError::DecodeError(
+                        "RegisterForeignDevice too short".into(),
+                    ));
                 }
                 Ok(Self::RegisterForeignDevice {
                     ttl: u16::from_be_bytes([payload[0], payload[1]]),
                 })
             }
-            0x0F => Ok(Self::DistributeBroadcastToNetwork(Bytes::copy_from_slice(payload))),
+            0x0F => Ok(Self::DistributeBroadcastToNetwork(Bytes::copy_from_slice(
+                payload,
+            ))),
             0x10 => Ok(Self::OriginalUnicastNpdu(Bytes::copy_from_slice(payload))),
             0x11 => Ok(Self::OriginalBroadcastNpdu(Bytes::copy_from_slice(payload))),
-            code => Err(BacnetError::DecodeError(format!("unknown BVLL function {code:#02x}"))),
+            code => Err(BacnetError::DecodeError(format!(
+                "unknown BVLL function {code:#02x}"
+            ))),
         }
     }
 }
@@ -161,7 +192,10 @@ mod tests {
     fn forwarded_npdu_has_originator_address() {
         let orig = SocketAddrV4::new([192, 168, 1, 10].into(), 47808);
         let npdu = Bytes::from_static(b"\x01\x00");
-        let frame = BvllFrame::ForwardedNpdu { originating_address: orig, npdu };
+        let frame = BvllFrame::ForwardedNpdu {
+            originating_address: orig,
+            npdu,
+        };
         let encoded = frame.encode();
         assert_eq!(encoded[1], 0x0A);
         assert_eq!(&encoded[4..8], &[192, 168, 1, 10]);
