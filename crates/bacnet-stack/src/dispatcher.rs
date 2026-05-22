@@ -5,7 +5,6 @@
 /// 2. Decodes the NPDU header to extract the APDU.
 /// 3. Identifies the PDU type and dispatches to the correct service handler.
 /// 4. Encodes the response and sends it back via the transport's outbound channel.
-
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -29,7 +28,7 @@ use tracing::{debug, info, warn};
 
 use bacnet_transport::{Destination, InboundFrame, OutboundFrame};
 
-use crate::services::{read_property, read_property_multiple, write_property, who_is};
+use crate::services::{read_property, read_property_multiple, who_is, write_property};
 
 // ---------------------------------------------------------------------------
 // Device registry
@@ -188,8 +187,7 @@ impl ApduDispatcher {
                     ) {
                         let mut buf = BytesMut::new();
                         iam.encode(&mut buf);
-                        let npdu_bytes =
-                            Npdu::encode_local(false, &buf).to_vec();
+                        let npdu_bytes = Npdu::encode_local(false, &buf).to_vec();
                         // I-Am is broadcast
                         let _ = outbound
                             .send(OutboundFrame {
@@ -245,11 +243,13 @@ impl ApduDispatcher {
             }
 
             ConfirmedServiceRequest::ReadPropertyMultiple(specs) => {
-                let complex_ack =
-                    read_property_multiple::handle_read_property_multiple(
-                        specs, &self.store, device_id, invoke_id,
-                    )
-                    .await;
+                let complex_ack = read_property_multiple::handle_read_property_multiple(
+                    specs,
+                    &self.store,
+                    device_id,
+                    invoke_id,
+                )
+                .await;
                 let mut buf = BytesMut::new();
                 complex_ack.encode(&mut buf);
                 Some(buf)
@@ -260,7 +260,11 @@ impl ApduDispatcher {
                 match write_property::handle_write_property(w, &self.store, device_id).await {
                     Ok(()) => {
                         let mut buf = BytesMut::new();
-                        SimpleAck { invoke_id, service_choice }.encode(&mut buf);
+                        SimpleAck {
+                            invoke_id,
+                            service_choice,
+                        }
+                        .encode(&mut buf);
                         Some(buf)
                     }
                     Err(e) => Some(encode_error_pdu(invoke_id, service_choice, &e)),
@@ -271,7 +275,11 @@ impl ApduDispatcher {
                 // COV subscriptions: Phase 3 — for now send SimpleACK
                 let service_choice = 5u8;
                 let mut buf = BytesMut::new();
-                SimpleAck { invoke_id, service_choice }.encode(&mut buf);
+                SimpleAck {
+                    invoke_id,
+                    service_choice,
+                }
+                .encode(&mut buf);
                 Some(buf)
             }
         };
@@ -298,14 +306,13 @@ fn encode_error_pdu(invoke_id: u8, service_choice: u8, e: &BacnetError) -> Bytes
     let (class, code) = match e {
         BacnetError::UnknownObject => (ErrorClass::Object, ErrorCode::UnknownObject),
         BacnetError::UnknownProperty => (ErrorClass::Property, ErrorCode::UnknownProperty),
-        BacnetError::WriteAccessDenied => {
-            (ErrorClass::Property, ErrorCode::WriteAccessDenied)
-        }
+        BacnetError::WriteAccessDenied => (ErrorClass::Property, ErrorCode::WriteAccessDenied),
         BacnetError::ValueOutOfRange => (ErrorClass::Property, ErrorCode::ValueOutOfRange),
         BacnetError::InvalidDataType => (ErrorClass::Property, ErrorCode::InvalidDataType),
-        BacnetError::ServiceError { error_class, error_code } => {
-            (*error_class, *error_code)
-        }
+        BacnetError::ServiceError {
+            error_class,
+            error_code,
+        } => (*error_class, *error_code),
         _ => (ErrorClass::Services, ErrorCode::Other(0)),
     };
     let mut buf = BytesMut::new();
@@ -319,9 +326,6 @@ fn encode_error_pdu(invoke_id: u8, service_choice: u8, e: &BacnetError) -> Bytes
     buf
 }
 
-fn u8_to_service_choice(
-    _v: u8,
-) -> bacnet_codec::apdu::confirmed::ConfirmedServiceChoice {
+fn u8_to_service_choice(_v: u8) -> bacnet_codec::apdu::confirmed::ConfirmedServiceChoice {
     bacnet_codec::apdu::confirmed::ConfirmedServiceChoice::ReadProperty
 }
-

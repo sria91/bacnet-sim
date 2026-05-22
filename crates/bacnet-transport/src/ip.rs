@@ -1,5 +1,4 @@
 /// BACnet/IP UDP transport (BVLL layer).
-
 use bacnet_codec::bvll::BvllFrame;
 use bacnet_types::NetworkAddress;
 use bytes::Bytes;
@@ -27,7 +26,12 @@ impl BacnetIpTransport {
         let socket = Arc::new(socket);
         let (inbound_tx, _) = broadcast::channel(1024);
         let (outbound_tx, outbound_rx) = mpsc::channel(1024);
-        Ok(Self { socket, inbound_tx, outbound_rx, outbound_tx })
+        Ok(Self {
+            socket,
+            inbound_tx,
+            outbound_rx,
+            outbound_tx,
+        })
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<InboundFrame> {
@@ -70,7 +74,10 @@ impl BacnetIpTransport {
                                     network_number: 0,
                                     mac: src_mac,
                                 };
-                                let _ = inbound_tx.send(InboundFrame { src: src_addr, npdu });
+                                let _ = inbound_tx.send(InboundFrame {
+                                    src: src_addr,
+                                    npdu,
+                                });
                             }
                             Err(e) => warn!("BVLL decode error from {src}: {e}"),
                         }
@@ -95,9 +102,7 @@ impl BacnetIpTransport {
                     bacnet_types::MacAddr::Ip(v4) => SocketAddr::V4(v4),
                     _ => continue,
                 },
-                Destination::Broadcast { .. } => {
-                    "255.255.255.255:47808".parse().unwrap()
-                }
+                Destination::Broadcast { .. } => "255.255.255.255:47808".parse().unwrap(),
             };
             if let Err(e) = socket_send.send_to(&encoded, dst_addr).await {
                 error!("UDP send error to {dst_addr}: {e}");
