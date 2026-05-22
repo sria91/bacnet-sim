@@ -1,0 +1,14 @@
+[package]
+name = "bacnet-config"
+description = "BACnet simulator configuration: TOML/YAML/JSON topology and device profile loading"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+bacnet-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+thiserror = "1"

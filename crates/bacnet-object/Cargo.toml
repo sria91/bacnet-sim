@@ -1,0 +1,16 @@
+[package]
+name = "bacnet-object"
+description = "BACnet object and property model with sharded in-memory store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+bacnet-types = { workspace = true }
+bytes = { workspace = true }
+dashmap = { workspace = true }
+parking_lot = { workspace = true }
+rustc-hash = { workspace = true }
+tracing = { workspace = true }
+thiserror = "1"

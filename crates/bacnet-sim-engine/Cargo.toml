@@ -1,0 +1,20 @@
+[package]
+name = "bacnet-sim-engine"
+description = "Simulation engine: value models, COV engine, alarm state machines, scenario scripting"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+bacnet-types = { workspace = true }
+bacnet-object = { workspace = true }
+bytes = { workspace = true }
+tokio = { workspace = true }
+rayon = { workspace = true }
+crossbeam = { workspace = true }
+dashmap = { workspace = true }
+rhai = { workspace = true }
+rand = { workspace = true }
+tracing = { workspace = true }
+thiserror = "1"

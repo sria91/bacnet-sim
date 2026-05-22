@@ -1,0 +1,37 @@
+[simulator]
+tick_hz = 1.0
+seed = 42
+
+[[networks]]
+id = 1
+transport = "bacnet_ip"
+bind = "0.0.0.0:47808"
+
+[[networks]]
+id = 2
+transport = "mstp"
+
+[profiles.minimal]
+description = "Minimal device — one AI, one BI"
+objects = [
+    { type = "AnalogInput", count = 1, name_prefix = "AI", units = "DegreesCelsius", model = "sine" },
+    { type = "BinaryInput", count = 1, name_prefix = "BI", model = "constant" },
+]
+
+[profiles.hvac_ahu]
+description = "Air Handling Unit"
+objects = [
+    { type = "AnalogInput", count = 12, name_prefix = "SAT", units = "DegreesCelsius", model = "sine" },
+    { type = "AnalogOutput", count = 4, name_prefix = "VLV", units = "Percent", model = "step" },
+    { type = "BinaryInput", count = 8, name_prefix = "STAT", model = "constant" },
+]
+
+[[devices]]
+id_range = [1000, 1009]
+network = 1
+profile = "minimal"
+
+[[devices]]
+id_range = [2000, 2009]
+network = 1
+profile = "hvac_ahu"

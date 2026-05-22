@@ -1,0 +1,100 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/bacnet-types",
+    "crates/bacnet-codec",
+    "crates/bacnet-transport",
+    "crates/bacnet-stack",
+    "crates/bacnet-object",
+    "crates/bacnet-sim-engine",
+    "crates/bacnet-config",
+    "crates/bacnet-api",
+    "crates/bacnet-sim",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/sritchie/bacnet-sim"
+authors = ["Sri Ritchie"]
+
+[workspace.dependencies]
+# Internal crates
+bacnet-types = { path = "crates/bacnet-types" }
+bacnet-codec = { path = "crates/bacnet-codec" }
+bacnet-transport = { path = "crates/bacnet-transport" }
+bacnet-stack = { path = "crates/bacnet-stack" }
+bacnet-object = { path = "crates/bacnet-object" }
+bacnet-sim-engine = { path = "crates/bacnet-sim-engine" }
+bacnet-config = { path = "crates/bacnet-config" }
+bacnet-api = { path = "crates/bacnet-api" }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["codec"] }
+
+# Parallelism
+rayon = "1.10"
+crossbeam = "0.8"
+
+# Concurrent collections
+dashmap = "6"
+parking_lot = "0.12"
+
+# Byte handling
+bytes = "1"
+
+# Hashing
+rustc-hash = "2"
+ahash = "0.8"
+
+# Networking
+tokio-serial = "5"
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
+rustls = "0.23"
+rustls-pemfile = "2"
+
+# Crypto (SCRAM-SHA-256 for SC auth)
+sha2 = "0.10"
+hmac = "0.12"
+base64 = "0.22"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# HTTP / gRPC
+axum = "0.7"
+tonic = "0.12"
+prost = "0.13"
+
+# Metrics / Observability
+prometheus = "0.13"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Scripting
+rhai = "1"
+
+# Random
+rand = "0.8"
+
+# Error handling
+anyhow = "1"
+
+# Testing / Benchmarking
+criterion = { version = "0.5", features = ["async_tokio"] }
+
+# Fuzzing (dev-dep)
+libfuzzer-sys = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+[profile.bench]
+inherits = "release"
+debug = true

@@ -1,0 +1,17 @@
+[package]
+name = "bacnet-stack"
+description = "BACnet stack: NPDU routing, APDU dispatch, segmentation, and service handlers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+bacnet-types = { workspace = true }
+bacnet-codec = { workspace = true }
+bacnet-object = { workspace = true }
+bytes = { workspace = true }
+tokio = { workspace = true }
+dashmap = { workspace = true }
+tracing = { workspace = true }
+thiserror = "1"

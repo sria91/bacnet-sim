@@ -1,0 +1,13 @@
+[package]
+name = "bacnet-codec"
+description = "BACnet PDU serialization (BVLL, NPDU, APDU, MS/TP, SC frames)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+bacnet-types = { workspace = true }
+bytes = { workspace = true }
+serde = { workspace = true }
+thiserror = "1"

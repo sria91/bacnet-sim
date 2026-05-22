@@ -1,0 +1,26 @@
+[package]
+name = "bacnet-sim"
+description = "BACnet simulator binary — ties together all crates"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "bacnet-sim"
+path = "src/main.rs"
+
+[dependencies]
+bacnet-types = { workspace = true }
+bacnet-codec = { workspace = true }
+bacnet-transport = { workspace = true }
+bacnet-stack = { workspace = true }
+bacnet-object = { workspace = true }
+bacnet-sim-engine = { workspace = true }
+bacnet-config = { workspace = true }
+bacnet-api = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+thiserror = "1"

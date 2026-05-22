@@ -1,0 +1,22 @@
+[package]
+name = "bacnet-api"
+description = "BACnet simulator management REST/gRPC API and Prometheus metrics exporter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+bacnet-types = { workspace = true }
+bacnet-object = { workspace = true }
+bacnet-sim-engine = { workspace = true }
+bacnet-config = { workspace = true }
+tokio = { workspace = true }
+axum = { workspace = true }
+tonic = { workspace = true }
+prost = { workspace = true }
+prometheus = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+thiserror = "1"
