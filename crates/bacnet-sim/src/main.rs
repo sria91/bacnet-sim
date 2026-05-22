@@ -1,38 +1,58 @@
-mod simulation_builder;
 mod hot_reload;
+mod simulation_builder;
 
 use std::{net::SocketAddr, sync::Arc};
 use tracing::info;
 
+use bacnet_api::rest::AppState;
+use bacnet_config::topology::TransportKind;
 use bacnet_object::{
-    analog_input::AnalogInput,
-    binary_input::BinaryInput,
-    device::DeviceObject,
-    store::ObjectStore,
+    analog_input::AnalogInput, binary_input::BinaryInput, device::DeviceObject, store::ObjectStore,
 };
 use bacnet_sim_engine::engine::SimEngine;
 use bacnet_stack::dispatcher::{ApduDispatcher, DeviceInfo};
 use bacnet_transport::ip::BacnetIpTransport;
 use bacnet_transport::sc::hub::ScHub;
-use bacnet_config::topology::TransportKind;
-use bacnet_types::{
-    property_value::EngineeringUnits,
-    DeviceId,
-};
-use bacnet_api::rest::AppState;
-
-const DEVICE_ID: u32 = 1234;
-const BACNET_PORT: u16 = 47808;
-const API_PORT: u16 = 8080;
+use bacnet_types::{property_value::EngineeringUnits, DeviceId};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // -----------------------------------------------------------------------
-    // Structured logging — default to INFO; --log-format=json for JSON output
+    // Configuration — env vars take precedence; CLI flags override env vars.
+    // -----------------------------------------------------------------------
+    let bacnet_ip_port: u16 = std::env::var("BACNET_IP_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(47808);
+
+    let api_port: u16 = std::env::var("BACNET_API_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(8080);
+
+    let sc_port: u16 = std::env::var("BACNET_SC_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(47814);
+
+    let demo_device_id: u32 = std::env::var("BACNET_DEVICE_ID")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1234);
+
+    let demo_tick_hz: f64 = std::env::var("BACNET_TICK_HZ")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1.0);
+
+    // -----------------------------------------------------------------------
+    // Structured logging — BACNET_LOG_FORMAT env var ("text"|"json") or
+    //                      --log-format=<fmt> CLI flag (CLI wins).
     // -----------------------------------------------------------------------
     let log_format = std::env::args()
         .find(|a| a.starts_with("--log-format="))
         .map(|a| a.trim_start_matches("--log-format=").to_string())
+        .or_else(|| std::env::var("BACNET_LOG_FORMAT").ok())
         .unwrap_or_else(|| "text".to_string());
 
     match log_format.as_str() {
@@ -58,9 +78,13 @@ async fn main() -> anyhow::Result<()> {
     info!(version = env!("CARGO_PKG_VERSION"), "bacnet-sim starting");
 
     // -----------------------------------------------------------------------
-    // Parse optional --config <path> argument
+    // Config path — BACNET_CONFIG_FILE env var or --config CLI flag (CLI wins).
     // -----------------------------------------------------------------------
-    let config_path = parse_config_arg();
+    let config_path = parse_config_arg().or_else(|| {
+        std::env::var("BACNET_CONFIG_FILE")
+            .ok()
+            .filter(|s| !s.is_empty())
+    });
 
     // -----------------------------------------------------------------------
     // Object store + API state
@@ -68,7 +92,7 @@ async fn main() -> anyhow::Result<()> {
     let store = Arc::new(ObjectStore::new());
     let api_state = AppState::new(Arc::clone(&store));
 
-    let bind_addr: SocketAddr = format!("0.0.0.0:{BACNET_PORT}").parse()?;
+    let bind_addr: SocketAddr = format!("0.0.0.0:{bacnet_ip_port}").parse()?;
     let transport = BacnetIpTransport::bind(bind_addr).await?;
     let inbound_rx = transport.subscribe();
     let outbound_tx = transport.sender();
@@ -88,12 +112,13 @@ async fn main() -> anyhow::Result<()> {
         for net in &config.networks {
             match net.transport {
                 TransportKind::BacnetSc => {
+                    let sc_default = format!("0.0.0.0:{sc_port}");
                     let sc_bind: SocketAddr = net
                         .bind
                         .as_deref()
-                        .unwrap_or("0.0.0.0:47814")
+                        .unwrap_or(&sc_default)
                         .parse()
-                        .unwrap_or_else(|_| "0.0.0.0:47814".parse().unwrap());
+                        .unwrap_or_else(|_| format!("0.0.0.0:{sc_port}").parse().unwrap());
                     match ScHub::start(sc_bind).await {
                         Ok(hub) => info!(addr = %hub.local_addr(), "BACnet/SC hub listening"),
                         Err(e) => tracing::error!("Failed to start SC hub: {e}"),
@@ -115,7 +140,7 @@ async fn main() -> anyhow::Result<()> {
             simulation_builder::build_simulation(&config, Arc::clone(&store), &mut dispatcher);
     } else {
         // ----- Demo mode: single device with 8 AI + 4 BI -----
-        let device_id = DeviceId(DEVICE_ID);
+        let device_id = DeviceId(demo_device_id);
 
         let device_obj = DeviceObject::new(device_id, "bacnet-sim-device");
         store.insert(device_id, Box::new(device_obj));
@@ -134,10 +159,10 @@ async fn main() -> anyhow::Result<()> {
             store.insert(device_id, Box::new(bi));
         }
 
-        dispatcher.register_device(DeviceInfo::new(DEVICE_ID));
-        api_state.register_device(DEVICE_ID).await;
+        dispatcher.register_device(DeviceInfo::new(demo_device_id));
+        api_state.register_device(demo_device_id).await;
 
-        let (engine, cov_rx) = SimEngine::new(Arc::clone(&store), 1.0);
+        let (engine, cov_rx) = SimEngine::new(Arc::clone(&store), demo_tick_hz);
         tokio::spawn(async move {
             let mut rx = cov_rx;
             while let Some(notif) = rx.recv().await {
@@ -150,7 +175,10 @@ async fn main() -> anyhow::Result<()> {
         });
         sim_engine = engine;
 
-        info!(device_id = DEVICE_ID, "Demo mode: single device, 12 objects");
+        info!(
+            device_id = demo_device_id,
+            "Demo mode: single device, 12 objects"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -165,10 +193,7 @@ async fn main() -> anyhow::Result<()> {
 
     bacnet_api::metrics::set_objects(store.count() as f64);
 
-    info!(
-        total_objects = store.count(),
-        "Object store ready",
-    );
+    info!(total_objects = store.count(), "Object store ready",);
 
     // -----------------------------------------------------------------------
     // Background metrics refresh (every 15s)
@@ -207,15 +232,15 @@ async fn main() -> anyhow::Result<()> {
     // -----------------------------------------------------------------------
     // Management REST API
     // -----------------------------------------------------------------------
-    let api_addr: SocketAddr = format!("0.0.0.0:{API_PORT}").parse()?;
+    let api_addr: SocketAddr = format!("0.0.0.0:{api_port}").parse()?;
     let _api_task = tokio::spawn(async move {
         if let Err(e) = bacnet_api::rest::serve(api_addr, api_state).await {
             tracing::error!("REST API error: {e}");
         }
     });
 
-    info!("BACnet/IP listening on udp/0.0.0.0:{BACNET_PORT}");
-    info!("Management API listening on http://0.0.0.0:{API_PORT}");
+    info!("BACnet/IP listening on udp/0.0.0.0:{bacnet_ip_port}");
+    info!("Management API listening on http://0.0.0.0:{api_port}");
 
     // -----------------------------------------------------------------------
     // Run transport or Ctrl-C
