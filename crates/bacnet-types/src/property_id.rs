@@ -51,6 +51,10 @@ pub enum PropertyIdentifier {
     MaxInfoFrames,
     DatabaseRevision,
 
+    // Multi-state objects
+    NumberOfStates,
+    StateText,
+
     // Special read specifiers
     All,
     Required,
@@ -87,6 +91,8 @@ impl PropertyIdentifier {
             0 => Self::AckedTransitions,
             87 => Self::PriorityArray,
             104 => Self::RelinquishDefault,
+            74 => Self::NumberOfStates,
+            110 => Self::StateText,
             112 => Self::SystemStatus,
             121 => Self::VendorName,
             120 => Self::VendorIdentifier,
@@ -138,6 +144,8 @@ impl PropertyIdentifier {
             Self::AckedTransitions => 0,
             Self::PriorityArray => 87,
             Self::RelinquishDefault => 104,
+            Self::NumberOfStates => 74,
+            Self::StateText => 110,
             Self::SystemStatus => 112,
             Self::VendorName => 121,
             Self::VendorIdentifier => 120,

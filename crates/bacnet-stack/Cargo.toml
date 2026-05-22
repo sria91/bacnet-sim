@@ -10,6 +10,7 @@ repository.workspace = true
 bacnet-types = { workspace = true }
 bacnet-codec = { workspace = true }
 bacnet-object = { workspace = true }
+bacnet-transport = { workspace = true }
 bytes = { workspace = true }
 tokio = { workspace = true }
 dashmap = { workspace = true }
