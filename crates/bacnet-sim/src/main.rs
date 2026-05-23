@@ -133,7 +133,6 @@ async fn main() -> anyhow::Result<()> {
         for group in &config.devices {
             for id in group.id_range[0]..=group.id_range[1] {
                 api_state.register_device(id).await;
-                dispatcher.register_device(DeviceInfo::new(id));
             }
         }
         sim_engine =

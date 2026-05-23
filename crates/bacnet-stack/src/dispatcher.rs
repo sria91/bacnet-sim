@@ -294,13 +294,25 @@ impl ApduDispatcher {
         let result: Option<BytesMut> = match req.service {
             ConfirmedServiceRequest::ReadProperty(r) => {
                 let service_choice = 12u8;
+                let prop_id = r.property_id; // save for error logging (r is moved below)
+                debug!(
+                    device = device_id.0,
+                    object_type = ?r.object_id.object_type,
+                    object_instance = r.object_id.instance,
+                    property = ?r.property_id,
+                    "ReadProperty"
+                );
                 match read_property::handle_read_property(r, &self.store, device_id).await {
-                    Ok(complex_ack) => {
+                    Ok(mut complex_ack) => {
+                        complex_ack.invoke_id = invoke_id;
                         let mut buf = BytesMut::new();
                         complex_ack.encode(&mut buf);
                         Some(buf)
                     }
-                    Err(e) => Some(encode_error_pdu(invoke_id, service_choice, &e)),
+                    Err(e) => {
+                        debug!(error = ?e, property = ?prop_id, device = device_id.0, "ReadProperty error");
+                        Some(encode_error_pdu(invoke_id, service_choice, &e))
+                    }
                 }
             }
 

@@ -31,9 +31,14 @@ pub enum PropertyIdentifier {
     PriorityArray,
     RelinquishDefault,
 
-    // Device object
+    // Device object — required
     SystemStatus,
     VendorName,
+    // Device object — optional
+    LocalDate,
+    LocalTime,
+    UtcOffset,
+    DaylightSavingsStatus,
     VendorIdentifier,
     ModelName,
     FirmwareRevision,
@@ -72,6 +77,9 @@ pub enum PropertyIdentifier {
     EffectivePeriod,
     ListOfObjectPropertyReferences,
     ExceptionSchedule,
+
+    // ASHRAE 135-2012 Addendum ai — required for all object types
+    PropertyList,
 
     // Special read specifiers
     All,
@@ -112,7 +120,11 @@ impl PropertyIdentifier {
             74 => Self::NumberOfStates,
             110 => Self::StateText,
             133 => Self::Enable,
-            57 => Self::LogInterval,
+            56 => Self::LocalDate,
+            57 => Self::LocalTime,
+            119 => Self::UtcOffset,
+            24 => Self::DaylightSavingsStatus,
+            132 => Self::LogInterval,
             127 => Self::BufferSize,
             141 => Self::RecordCount,
             145 => Self::TotalRecordCount,
@@ -143,6 +155,7 @@ impl PropertyIdentifier {
             64 => Self::MaxMaster,
             63 => Self::MaxInfoFrames,
             155 => Self::DatabaseRevision,
+            371 => Self::PropertyList,
             8 => Self::All,
             105 => Self::Required,
             80 => Self::Optional,
@@ -179,7 +192,11 @@ impl PropertyIdentifier {
             Self::NumberOfStates => 74,
             Self::StateText => 110,
             Self::Enable => 133,
-            Self::LogInterval => 57,
+            Self::LocalDate => 56,
+            Self::LocalTime => 57,
+            Self::UtcOffset => 119,
+            Self::DaylightSavingsStatus => 24,
+            Self::LogInterval => 132,
             Self::BufferSize => 127,
             Self::RecordCount => 141,
             Self::TotalRecordCount => 145,
@@ -210,6 +227,7 @@ impl PropertyIdentifier {
             Self::MaxMaster => 64,
             Self::MaxInfoFrames => 63,
             Self::DatabaseRevision => 155,
+            Self::PropertyList => 371,
             Self::All => 8,
             Self::Required => 105,
             Self::Optional => 80,

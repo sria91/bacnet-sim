@@ -130,7 +130,15 @@ pub fn encode_application_bitstring(buf: &mut BytesMut, bits: &BitString) {
     let unused = if data.is_empty() { 0u8 } else { (8 - data.len() % 8) as u8 % 8 };
     let byte_count = (data.len() + 7) / 8;
     let total_len = 1 + byte_count; // unused-bits octet + data bytes
-    buf.extend_from_slice(&[tag_byte(8, total_len as u8), unused]);
+    // BACnet LVT 0-4 = direct length; LVT 5 = "next byte is the actual length".
+    // Bitstrings for ProtocolServicesSupported (40-bit) and
+    // ProtocolObjectTypesSupported (32-bit) have total_len >= 5 and therefore
+    // require the extended-length form.
+    if total_len <= 4 {
+        buf.extend_from_slice(&[tag_byte(8, total_len as u8), unused]);
+    } else {
+        buf.extend_from_slice(&[tag_byte(8, 5), total_len as u8, unused]);
+    }
     let mut byte = 0u8;
     for (i, &bit) in data.iter().enumerate() {
         if bit {
@@ -153,13 +161,28 @@ pub fn decode_application_bitstring(buf: &[u8]) -> Result<(BitString, usize), Ba
     if (buf[0] >> 4) != 8 {
         return Err(BacnetError::DecodeError(format!("expected bitstring tag, got {:#02x}", buf[0])));
     }
-    let total_len = (buf[0] & 0x07) as usize;
-    if buf.len() < 1 + total_len {
+    let lvt = (buf[0] & 0x07) as usize;
+    // LVT 0-4 = direct length; LVT 5 = next 1 byte is actual length.
+    let (total_len, value_start) = if lvt <= 4 {
+        (lvt, 1usize)
+    } else if lvt == 5 {
+        if buf.len() < 3 {
+            return Err(BacnetError::DecodeError(
+                "buffer too short for extended-length bitstring".into(),
+            ));
+        }
+        (buf[1] as usize, 2usize)
+    } else {
+        return Err(BacnetError::DecodeError(format!(
+            "unsupported bitstring extended-length type LVT={lvt}"
+        )));
+    };
+    if buf.len() < value_start + total_len {
         return Err(BacnetError::DecodeError("buffer too short for bitstring data".into()));
     }
-    let unused = buf[1] as usize;
-    let data_bytes = &buf[2..1 + total_len];
-    let bit_count = data_bytes.len() * 8 - unused;
+    let unused = buf[value_start] as usize;
+    let data_bytes = &buf[value_start + 1..value_start + total_len];
+    let bit_count = if data_bytes.is_empty() { 0 } else { data_bytes.len() * 8 - unused };
     let mut bits = Vec::with_capacity(bit_count);
     for (i, &byte) in data_bytes.iter().enumerate() {
         let limit = if i == data_bytes.len() - 1 { 8 - unused } else { 8 };
@@ -167,7 +190,7 @@ pub fn decode_application_bitstring(buf: &[u8]) -> Result<(BitString, usize), Ba
             bits.push((byte & (0x80 >> j)) != 0);
         }
     }
-    Ok((BitString::from_bits(&bits), 1 + total_len))
+    Ok((BitString::from_bits(&bits), value_start + total_len))
 }
 
 // ---------------------------------------------------------------------------

@@ -1,9 +1,10 @@
 /// Device object (ASHRAE 135-2020 §12.11).
 use bacnet_types::{
-    error::BacnetError, property_value::BitString, DeviceId, ObjectId, ObjectType,
-    PropertyIdentifier, PropertyValue,
+    error::BacnetError,
+    property_value::{BacnetDate, BacnetTime, BitString, Weekday},
+    DeviceId, ObjectId, ObjectType, PropertyIdentifier, PropertyValue,
 };
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::property::BacnetObject;
 
@@ -136,6 +137,54 @@ impl BacnetObject for DeviceObject {
                 bits[8] = true; // device
                 Ok(PropertyValue::BitString(BitString::from_bits(&bits)))
             }
+            PropertyIdentifier::LocalDate => {
+                let (date, _) = current_utc();
+                Ok(PropertyValue::Date(date))
+            }
+            PropertyIdentifier::LocalTime => {
+                let (_, time) = current_utc();
+                Ok(PropertyValue::Time(time))
+            }
+            PropertyIdentifier::UtcOffset => Ok(PropertyValue::Integer(0)),
+            PropertyIdentifier::DaylightSavingsStatus => Ok(PropertyValue::Boolean(false)),
+            PropertyIdentifier::PropertyList => {
+                // ASHRAE 135 §12.11.7 — all implemented properties except
+                // ObjectIdentifier, ObjectName, ObjectType, and PropertyList itself.
+                let props: &[u32] = &[
+                    112, // SystemStatus
+                    121, // VendorName
+                    120, // VendorIdentifier
+                    70,  // ModelName
+                    44,  // FirmwareRevision
+                    12,  // ApplicationSoftwareVersion
+                    98,  // ProtocolVersion
+                    139, // ProtocolRevision
+                    97,  // ProtocolServicesSupported
+                    96,  // ProtocolObjectTypesSupported
+                    76,  // ObjectList
+                    62,  // MaxApduLengthAccepted
+                    107, // SegmentationSupported
+                    11,  // ApduTimeout
+                    73,  // NumberOfApduRetries
+                    155, // DatabaseRevision
+                    28,  // Description
+                    56,  // LocalDate
+                    57,  // LocalTime
+                    119, // UtcOffset
+                    24,  // DaylightSavingsStatus
+                    371, // PropertyList (this property — included per standard)
+                ];
+                match array_index {
+                    Some(0) => Ok(PropertyValue::Unsigned(props.len() as u32)),
+                    Some(i) => props
+                        .get((i as usize).saturating_sub(1))
+                        .map(|&id| PropertyValue::Enumerated(id))
+                        .ok_or(BacnetError::ValueOutOfRange),
+                    None => Ok(PropertyValue::Array(
+                        props.iter().map(|&id| PropertyValue::Enumerated(id)).collect(),
+                    )),
+                }
+            }
             _ => Err(BacnetError::UnknownProperty),
         }
     }
@@ -256,4 +305,69 @@ impl BacnetObject for DeviceObject {
             },
         ]
     }
+}
+
+// ---------------------------------------------------------------------------
+// UTC time helpers (no external crate required)
+// ---------------------------------------------------------------------------
+
+fn is_leap(y: u32) -> bool {
+    (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)
+}
+
+/// Return the current UTC date and time derived from `SystemTime::now()`.
+fn current_utc() -> (BacnetDate, BacnetTime) {
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
+    let time = BacnetTime {
+        hour: ((secs / 3600) % 24) as u8,
+        minute: ((secs / 60) % 60) as u8,
+        second: (secs % 60) as u8,
+        hundredths: 0,
+    };
+
+    // Jan 1 1970 was a Thursday (index 3 counting from Monday=0).
+    let weekday = match (secs / 86400 + 3) % 7 {
+        0 => Weekday::Monday,
+        1 => Weekday::Tuesday,
+        2 => Weekday::Wednesday,
+        3 => Weekday::Thursday,
+        4 => Weekday::Friday,
+        5 => Weekday::Saturday,
+        _ => Weekday::Sunday,
+    };
+
+    let mut days = (secs / 86400) as u32;
+    let mut year = 1970u32;
+    loop {
+        let diy = if is_leap(year) { 366 } else { 365 };
+        if days < diy {
+            break;
+        }
+        days -= diy;
+        year += 1;
+    }
+    let month_lens = [
+        31u32,
+        if is_leap(year) { 29 } else { 28 },
+        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+    ];
+    let mut month = 1u8;
+    for (i, &ml) in month_lens.iter().enumerate() {
+        if days < ml {
+            month = (i + 1) as u8;
+            break;
+        }
+        days -= ml;
+    }
+    let date = BacnetDate {
+        year: year as u16,
+        month,
+        day: (days + 1) as u8,
+        weekday,
+    };
+    (date, time)
 }
