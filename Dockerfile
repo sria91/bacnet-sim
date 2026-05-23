@@ -2,16 +2,25 @@
 # ---------------------------------------------------------------------------
 # Stage 1: Build
 # ---------------------------------------------------------------------------
-FROM rust:alpine AS builder
+FROM --platform=$BUILDPLATFORM tonistiigi/xx as xx
+FROM alpine:3.23 AS builder
+
+COPY --from=xx / /
 
 # Build dependencies for ring / openssl / tokio-signal
-RUN apk add --no-cache musl-dev pkgconfig openssl-dev
+RUN apk add --no-cache clang lld musl-dev pkgconfig openssl-dev cargo rust
 
 WORKDIR /build
 COPY . .
 
+RUN cargo fetch
+
+ARG TARGETPLATFORM
+
 # Compile the release binary statically against musl
-RUN cargo build --release --bin bacnet-sim
+RUN xx-cargo build --target=$(xx-cargo --print-target-triple) --release --bin bacnet-sim && \
+    xx-verify /build/target/$(xx-cargo --print-target-triple)/release/bacnet-sim && \
+    cp /build/target/$(xx-cargo --print-target-triple)/release/bacnet-sim /build/bacnet-sim
 
 # ---------------------------------------------------------------------------
 # Stage 2: Runtime image
@@ -23,7 +32,7 @@ RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
 
-COPY --from=builder /build/target/release/bacnet-sim /app/bacnet-sim
+COPY --from=builder /build/bacnet-sim /app/bacnet-sim
 
 # ---------------------------------------------------------------------------
 # Environment variables (all have sensible defaults for demo / single-device
