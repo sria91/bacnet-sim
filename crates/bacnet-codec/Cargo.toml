@@ -10,7 +10,7 @@ repository.workspace = true
 bacnet-types = { workspace = true }
 bytes = { workspace = true }
 serde = { workspace = true }
-thiserror = "1"
+thiserror = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

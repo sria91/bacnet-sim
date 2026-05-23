@@ -10,7 +10,6 @@
 ///   PUT  /api/v1/devices/:id/objects/:type/:inst/properties/:prop — write property
 ///   POST /api/v1/scenarios/load   — load a scenario TOML from a path
 ///   POST /api/v1/scenarios/stop   — no-op stub (placeholder)
-
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use axum::{
@@ -135,7 +134,10 @@ async fn list_devices(State(state): State<AppState>) -> impl IntoResponse {
         .map(|&id| {
             let dev = DeviceId(id);
             let count = count_objects_for_device(&state.store, dev);
-            DeviceListItem { id, object_count: count }
+            DeviceListItem {
+                id,
+                object_count: count,
+            }
         })
         .collect();
     Json(items)
@@ -177,11 +179,15 @@ async fn get_object(
 ) -> Result<impl IntoResponse, ApiError> {
     let otype = parse_object_type(&obj_type)?;
     let dev = DeviceId(dev_id);
-    let oid = ObjectId { object_type: otype, instance: inst };
-    let obj_ref = state
-        .store
-        .get(dev, oid)
-        .ok_or_else(|| not_found(format!("Object {obj_type}/{inst} on device {dev_id} not found")))?;
+    let oid = ObjectId {
+        object_type: otype,
+        instance: inst,
+    };
+    let obj_ref = state.store.get(dev, oid).ok_or_else(|| {
+        not_found(format!(
+            "Object {obj_type}/{inst} on device {dev_id} not found"
+        ))
+    })?;
     let guard = obj_ref.read_guard();
     let properties = guard
         .all_properties()
@@ -204,7 +210,10 @@ async fn write_property(
 
     let otype = parse_object_type(&obj_type)?;
     let dev = DeviceId(dev_id);
-    let oid = ObjectId { object_type: otype, instance: inst };
+    let oid = ObjectId {
+        object_type: otype,
+        instance: inst,
+    };
     let pid = parse_property_id(&prop)?;
 
     let mut obj_ref = state
@@ -223,14 +232,18 @@ async fn write_property(
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn load_scenario(
-    Json(body): Json<LoadScenarioBody>,
-) -> Result<impl IntoResponse, ApiError> {
+async fn load_scenario(Json(body): Json<LoadScenarioBody>) -> Result<impl IntoResponse, ApiError> {
     // Verify the path exists and is readable (actual scenario application is a
     // future enhancement — for now we validate and acknowledge).
-    std::fs::metadata(&body.path)
-        .map_err(|e| ApiError(StatusCode::BAD_REQUEST, format!("Cannot access {}: {e}", body.path)))?;
-    Ok(Json(serde_json::json!({ "status": "accepted", "path": body.path })))
+    std::fs::metadata(&body.path).map_err(|e| {
+        ApiError(
+            StatusCode::BAD_REQUEST,
+            format!("Cannot access {}: {e}", body.path),
+        )
+    })?;
+    Ok(Json(
+        serde_json::json!({ "status": "accepted", "path": body.path }),
+    ))
 }
 
 async fn stop_scenario() -> impl IntoResponse {
@@ -246,14 +259,14 @@ pub async fn serve(addr: SocketAddr, state: AppState) -> std::io::Result<()> {
         .route("/api/v1/health", get(health))
         .route("/api/v1/metrics", get(metrics_handler))
         .route("/api/v1/devices", get(list_devices))
-        .route("/api/v1/devices/:id", get(get_device))
-        .route("/api/v1/devices/:id/objects", get(list_objects))
+        .route("/api/v1/devices/{id}", get(get_device))
+        .route("/api/v1/devices/{id}/objects", get(list_objects))
         .route(
-            "/api/v1/devices/:id/objects/:type/:inst",
+            "/api/v1/devices/{id}/objects/{type}/{inst}",
             get(get_object),
         )
         .route(
-            "/api/v1/devices/:id/objects/:type/:inst/properties/:prop",
+            "/api/v1/devices/{id}/objects/{type}/{inst}/properties/{prop}",
             put(write_property),
         )
         .route("/api/v1/scenarios/load", post(load_scenario))
@@ -274,11 +287,15 @@ pub async fn serve(addr: SocketAddr, state: AppState) -> std::io::Result<()> {
 
 fn count_objects_for_device(store: &ObjectStore, dev: DeviceId) -> usize {
     use bacnet_types::property_id::PropertyIdentifier;
-    let oid = ObjectId { object_type: ObjectType::Device, instance: dev.0 };
+    let oid = ObjectId {
+        object_type: ObjectType::Device,
+        instance: dev.0,
+    };
     if let Some(obj) = store.get(dev, oid) {
         // Try to read ObjectList length
-        if let Ok(bacnet_types::property_value::PropertyValue::Unsigned(n)) =
-            obj.read_guard().read_property(PropertyIdentifier::ObjectList, Some(0))
+        if let Ok(bacnet_types::property_value::PropertyValue::Unsigned(n)) = obj
+            .read_guard()
+            .read_property(PropertyIdentifier::ObjectList, Some(0))
         {
             return n as usize;
         }
@@ -288,7 +305,10 @@ fn count_objects_for_device(store: &ObjectStore, dev: DeviceId) -> usize {
 
 fn collect_objects(store: &ObjectStore, dev: DeviceId) -> Vec<ObjectListItem> {
     use bacnet_types::property_id::PropertyIdentifier;
-    let oid = ObjectId { object_type: ObjectType::Device, instance: dev.0 };
+    let oid = ObjectId {
+        object_type: ObjectType::Device,
+        instance: dev.0,
+    };
     if let Some(obj) = store.get(dev, oid) {
         let guard = obj.read_guard();
         if let Ok(bacnet_types::property_value::PropertyValue::Array(list)) =
@@ -314,57 +334,63 @@ fn collect_objects(store: &ObjectStore, dev: DeviceId) -> Vec<ObjectListItem> {
 
 fn parse_object_type(s: &str) -> Result<ObjectType, ApiError> {
     match s.to_lowercase().replace('-', "_").as_str() {
-        "analog_input"   | "analoginput"   => Ok(ObjectType::AnalogInput),
-        "analog_output"  | "analogoutput"  => Ok(ObjectType::AnalogOutput),
-        "analog_value"   | "analogvalue"   => Ok(ObjectType::AnalogValue),
-        "binary_input"   | "binaryinput"   => Ok(ObjectType::BinaryInput),
-        "binary_output"  | "binaryoutput"  => Ok(ObjectType::BinaryOutput),
-        "binary_value"   | "binaryvalue"   => Ok(ObjectType::BinaryValue),
-        "device"                           => Ok(ObjectType::Device),
-        "multi_state_input"  | "multistateinput"  => Ok(ObjectType::MultiStateInput),
+        "analog_input" | "analoginput" => Ok(ObjectType::AnalogInput),
+        "analog_output" | "analogoutput" => Ok(ObjectType::AnalogOutput),
+        "analog_value" | "analogvalue" => Ok(ObjectType::AnalogValue),
+        "binary_input" | "binaryinput" => Ok(ObjectType::BinaryInput),
+        "binary_output" | "binaryoutput" => Ok(ObjectType::BinaryOutput),
+        "binary_value" | "binaryvalue" => Ok(ObjectType::BinaryValue),
+        "device" => Ok(ObjectType::Device),
+        "multi_state_input" | "multistateinput" => Ok(ObjectType::MultiStateInput),
         "multi_state_output" | "multistateoutput" => Ok(ObjectType::MultiStateOutput),
-        "multi_state_value"  | "multistatevalue"  => Ok(ObjectType::MultiStateValue),
+        "multi_state_value" | "multistatevalue" => Ok(ObjectType::MultiStateValue),
         "notification_class" | "notificationclass" => Ok(ObjectType::NotificationClass),
-        "schedule"                         => Ok(ObjectType::Schedule),
-        "trend_log"      | "trendlog"      => Ok(ObjectType::TrendLog),
-        _ => Err(ApiError(StatusCode::BAD_REQUEST, format!("Unknown object type: {s}"))),
+        "schedule" => Ok(ObjectType::Schedule),
+        "trend_log" | "trendlog" => Ok(ObjectType::TrendLog),
+        _ => Err(ApiError(
+            StatusCode::BAD_REQUEST,
+            format!("Unknown object type: {s}"),
+        )),
     }
 }
 
 fn parse_property_id(s: &str) -> Result<bacnet_types::property_id::PropertyIdentifier, ApiError> {
     use bacnet_types::property_id::PropertyIdentifier;
     match s.to_lowercase().replace('-', "_").as_str() {
-        "present_value"   | "presentvalue"   => Ok(PropertyIdentifier::PresentValue),
-        "object_name"     | "objectname"     => Ok(PropertyIdentifier::ObjectName),
-        "description"                        => Ok(PropertyIdentifier::Description),
-        "out_of_service"  | "outofservice"   => Ok(PropertyIdentifier::OutOfService),
-        "units"                              => Ok(PropertyIdentifier::Units),
-        "status_flags"    | "statusflags"    => Ok(PropertyIdentifier::StatusFlags),
-        _ => Err(ApiError(StatusCode::BAD_REQUEST, format!("Unknown property: {s}"))),
+        "present_value" | "presentvalue" => Ok(PropertyIdentifier::PresentValue),
+        "object_name" | "objectname" => Ok(PropertyIdentifier::ObjectName),
+        "description" => Ok(PropertyIdentifier::Description),
+        "out_of_service" | "outofservice" => Ok(PropertyIdentifier::OutOfService),
+        "units" => Ok(PropertyIdentifier::Units),
+        "status_flags" | "statusflags" => Ok(PropertyIdentifier::StatusFlags),
+        _ => Err(ApiError(
+            StatusCode::BAD_REQUEST,
+            format!("Unknown property: {s}"),
+        )),
     }
 }
 
 fn property_to_json(v: bacnet_types::property_value::PropertyValue) -> serde_json::Value {
     use bacnet_types::property_value::PropertyValue;
     match v {
-        PropertyValue::Null           => serde_json::Value::Null,
-        PropertyValue::Boolean(b)     => serde_json::json!(b),
-        PropertyValue::Unsigned(n)    => serde_json::json!(n),
-        PropertyValue::Integer(n)     => serde_json::json!(n),
-        PropertyValue::Real(f)        => serde_json::json!(f),
-        PropertyValue::Double(f)      => serde_json::json!(f),
+        PropertyValue::Null => serde_json::Value::Null,
+        PropertyValue::Boolean(b) => serde_json::json!(b),
+        PropertyValue::Unsigned(n) => serde_json::json!(n),
+        PropertyValue::Integer(n) => serde_json::json!(n),
+        PropertyValue::Real(f) => serde_json::json!(f),
+        PropertyValue::Double(f) => serde_json::json!(f),
         PropertyValue::CharacterString(s) => serde_json::json!(s),
-        PropertyValue::Enumerated(n)  => serde_json::json!(n),
-        PropertyValue::ObjectId(o)    => serde_json::json!({
+        PropertyValue::Enumerated(n) => serde_json::json!(n),
+        PropertyValue::ObjectId(o) => serde_json::json!({
             "type": format!("{:?}", o.object_type),
             "instance": o.instance,
         }),
-        PropertyValue::Array(arr)     => serde_json::json!(
-            arr.into_iter().map(property_to_json).collect::<Vec<_>>()
-        ),
-        PropertyValue::List(lst)      => serde_json::json!(
-            lst.into_iter().map(property_to_json).collect::<Vec<_>>()
-        ),
+        PropertyValue::Array(arr) => {
+            serde_json::json!(arr.into_iter().map(property_to_json).collect::<Vec<_>>())
+        }
+        PropertyValue::List(lst) => {
+            serde_json::json!(lst.into_iter().map(property_to_json).collect::<Vec<_>>())
+        }
         _ => serde_json::json!("<binary>"),
     }
 }
@@ -396,8 +422,8 @@ fn json_to_property_value(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::http::Request;
     use axum::body::Body;
+    use axum::http::Request;
     use tower::ServiceExt; // for `oneshot`
 
     fn make_app() -> (AppState, Router) {
@@ -407,8 +433,8 @@ mod tests {
             .route("/api/v1/health", get(health))
             .route("/api/v1/metrics", get(metrics_handler))
             .route("/api/v1/devices", get(list_devices))
-            .route("/api/v1/devices/:id", get(get_device))
-            .route("/api/v1/devices/:id/objects", get(list_objects))
+            .route("/api/v1/devices/{id}", get(get_device))
+            .route("/api/v1/devices/{id}/objects", get(list_objects))
             .with_state(state.clone());
         (state, router)
     }
@@ -417,7 +443,12 @@ mod tests {
     async fn health_returns_ok() {
         let (_, app) = make_app();
         let resp = app
-            .oneshot(Request::builder().uri("/api/v1/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
@@ -427,11 +458,18 @@ mod tests {
     async fn list_devices_empty() {
         let (_, app) = make_app();
         let resp = app
-            .oneshot(Request::builder().uri("/api/v1/devices").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/devices")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let items: Vec<serde_json::Value> = serde_json::from_slice(&body).unwrap();
         assert!(items.is_empty());
     }
@@ -440,7 +478,12 @@ mod tests {
     async fn get_device_not_found() {
         let (_, app) = make_app();
         let resp = app
-            .oneshot(Request::builder().uri("/api/v1/devices/9999").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/devices/9999")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
@@ -450,7 +493,12 @@ mod tests {
     async fn metrics_endpoint_returns_text() {
         let (_, app) = make_app();
         let resp = app
-            .oneshot(Request::builder().uri("/api/v1/metrics").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/metrics")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);

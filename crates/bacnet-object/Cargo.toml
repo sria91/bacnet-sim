@@ -13,4 +13,4 @@ dashmap = { workspace = true }
 parking_lot = { workspace = true }
 rustc-hash = { workspace = true }
 tracing = { workspace = true }
-thiserror = "1"
+thiserror = { workspace = true }

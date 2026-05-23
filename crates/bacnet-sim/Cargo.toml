@@ -23,5 +23,5 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
-thiserror = "1"
+thiserror = { workspace = true }
 notify = { workspace = true }

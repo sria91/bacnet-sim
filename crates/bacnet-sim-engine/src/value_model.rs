@@ -1,6 +1,5 @@
 /// Value models — drive `present_value` changes over time.
-
-use rand::{rngs::SmallRng, Rng, SeedableRng};
+use rand::{rngs::SmallRng, RngExt};
 
 pub trait ValueModel: Send + Sync {
     /// Return the next value given elapsed simulation time `t` (seconds) and `rng`.
@@ -32,9 +31,10 @@ pub struct SineModel {
 
 impl ValueModel for SineModel {
     fn next(&mut self, t: f64, rng: &mut SmallRng) -> f32 {
-        let base = self.offset + self.amplitude * (2.0 * std::f64::consts::PI * t / self.period_s).sin() as f32;
+        let base = self.offset
+            + self.amplitude * (2.0 * std::f64::consts::PI * t / self.period_s).sin() as f32;
         if self.noise_std > 0.0 {
-            base + rng.gen::<f32>() * self.noise_std * 2.0 - self.noise_std
+            base + rng.random::<f32>() * self.noise_std * 2.0 - self.noise_std
         } else {
             base
         }
@@ -54,7 +54,7 @@ pub struct RandomWalkModel {
 
 impl ValueModel for RandomWalkModel {
     fn next(&mut self, _t: f64, rng: &mut SmallRng) -> f32 {
-        let delta = (rng.gen::<f32>() - 0.5) * 2.0 * self.step_std;
+        let delta = (rng.random::<f32>() - 0.5) * 2.0 * self.step_std;
         self.current = (self.current + delta).clamp(self.min, self.max);
         self.current
     }
@@ -100,7 +100,7 @@ impl ValueModel for ThermalModel {
         let alpha = 1.0 - (-dt / self.time_const_s).exp() as f32;
         self.current += alpha * (self.setpoint - self.current);
         let noise = if self.noise_std > 0.0 {
-            (rng.gen::<f32>() - 0.5) * 2.0 * self.noise_std
+            (rng.random::<f32>() - 0.5) * 2.0 * self.noise_std
         } else {
             0.0
         };

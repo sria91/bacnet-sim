@@ -15,4 +15,4 @@ bytes = { workspace = true }
 tokio = { workspace = true }
 dashmap = { workspace = true }
 tracing = { workspace = true }
-thiserror = "1"
+thiserror = { workspace = true }
