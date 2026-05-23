@@ -8,11 +8,10 @@
 ///               5    extended length (next byte is the length)
 ///               6    opening tag (constructed encoding start, context only)
 ///               7    closing tag (constructed encoding end, context only)
-
 use bytes::{BufMut, BytesMut};
 
-use crate::{error::BacnetError, ObjectId, ObjectType, PropertyIdentifier, PropertyValue};
 use crate::property_value::BitString;
+use crate::{error::BacnetError, ObjectId, ObjectType, PropertyIdentifier, PropertyValue};
 
 // ---------------------------------------------------------------------------
 // Primitive helpers
@@ -38,7 +37,9 @@ fn decode_lvt_len(buf: &[u8], pos: &mut usize, lvt: u8) -> Result<usize, BacnetE
         *pos += 1;
         Ok(l)
     } else {
-        Err(BacnetError::DecodeError(format!("unexpected LVT {lvt} for length field")))
+        Err(BacnetError::DecodeError(format!(
+            "unexpected LVT {lvt} for length field"
+        )))
     }
 }
 
@@ -91,11 +92,7 @@ pub fn has_context_tag(buf: &[u8], pos: usize, number: u8) -> bool {
 // ---------------------------------------------------------------------------
 
 /// Decode a context-tagged `u32` at tag `expected`.
-pub fn decode_ctx_u32(
-    buf: &[u8],
-    pos: &mut usize,
-    expected: u8,
-) -> Result<u32, BacnetError> {
+pub fn decode_ctx_u32(buf: &[u8], pos: &mut usize, expected: u8) -> Result<u32, BacnetError> {
     let b = peek(buf, *pos)
         .ok_or_else(|| BacnetError::DecodeError("buffer exhausted (ctx u32)".into()))?;
     let tag = (b >> 4) & 0x0F;
@@ -112,11 +109,7 @@ pub fn decode_ctx_u32(
 }
 
 /// Decode a context-tagged `bool` at tag `expected`.
-pub fn decode_ctx_bool(
-    buf: &[u8],
-    pos: &mut usize,
-    expected: u8,
-) -> Result<bool, BacnetError> {
+pub fn decode_ctx_bool(buf: &[u8], pos: &mut usize, expected: u8) -> Result<bool, BacnetError> {
     let v = decode_ctx_u32(buf, pos, expected)?;
     Ok(v != 0)
 }
@@ -173,10 +166,7 @@ pub fn decode_ctx_property_id(
 
 /// Decode one application-tagged `PropertyValue` from `buf[*pos..]`.
 /// Advances `*pos` by the number of bytes consumed.
-pub fn decode_application_value(
-    buf: &[u8],
-    pos: &mut usize,
-) -> Result<PropertyValue, BacnetError> {
+pub fn decode_application_value(buf: &[u8], pos: &mut usize) -> Result<PropertyValue, BacnetError> {
     let b = peek(buf, *pos)
         .ok_or_else(|| BacnetError::DecodeError("buffer exhausted (application value)".into()))?;
     let tag = (b >> 4) & 0x0F;
@@ -225,8 +215,7 @@ pub fn decode_application_value(
             if *pos + 4 > buf.len() {
                 return Err(BacnetError::DecodeError("real truncated".into()));
             }
-            let v =
-                f32::from_be_bytes([buf[*pos], buf[*pos + 1], buf[*pos + 2], buf[*pos + 3]]);
+            let v = f32::from_be_bytes([buf[*pos], buf[*pos + 1], buf[*pos + 2], buf[*pos + 3]]);
             *pos += 4;
             Ok(PropertyValue::Real(v))
         }
@@ -313,7 +302,12 @@ pub fn decode_application_value(
                 _ => Weekday::Sunday,
             };
             *pos += 4;
-            Ok(PropertyValue::Date(BacnetDate { year, month, day, weekday }))
+            Ok(PropertyValue::Date(BacnetDate {
+                year,
+                month,
+                day,
+                weekday,
+            }))
         }
 
         // Time (tag 11) — always 4 bytes: hour, minute, second, hundredths
@@ -324,10 +318,10 @@ pub fn decode_application_value(
             }
             use crate::property_value::BacnetTime;
             let t = BacnetTime {
-                hour:        buf[*pos],
-                minute:      buf[*pos + 1],
-                second:      buf[*pos + 2],
-                hundredths:  buf[*pos + 3],
+                hour: buf[*pos],
+                minute: buf[*pos + 1],
+                second: buf[*pos + 2],
+                hundredths: buf[*pos + 3],
             };
             *pos += 4;
             Ok(PropertyValue::Time(t))
@@ -339,18 +333,12 @@ pub fn decode_application_value(
             if *pos + 4 > buf.len() {
                 return Err(BacnetError::DecodeError("object-id truncated".into()));
             }
-            let raw = u32::from_be_bytes([
-                buf[*pos],
-                buf[*pos + 1],
-                buf[*pos + 2],
-                buf[*pos + 3],
-            ]);
+            let raw = u32::from_be_bytes([buf[*pos], buf[*pos + 1], buf[*pos + 2], buf[*pos + 3]]);
             *pos += 4;
             let type_code = (raw >> 22) as u16;
             let instance = raw & 0x3F_FFFF;
             Ok(PropertyValue::ObjectId(ObjectId {
-                object_type: ObjectType::from_u16(type_code)
-                    .unwrap_or(ObjectType::Device),
+                object_type: ObjectType::from_u16(type_code).unwrap_or(ObjectType::Device),
                 instance,
             }))
         }
@@ -405,12 +393,15 @@ fn uint_bytes(value: u32) -> (u8, [u8; 4]) {
     } else if value < 0x1000000 {
         (3, [(value >> 16) as u8, (value >> 8) as u8, value as u8, 0])
     } else {
-        (4, [
-            (value >> 24) as u8,
-            (value >> 16) as u8,
-            (value >> 8) as u8,
-            value as u8,
-        ])
+        (
+            4,
+            [
+                (value >> 24) as u8,
+                (value >> 16) as u8,
+                (value >> 8) as u8,
+                value as u8,
+            ],
+        )
     }
 }
 

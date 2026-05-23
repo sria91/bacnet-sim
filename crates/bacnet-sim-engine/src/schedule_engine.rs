@@ -1,6 +1,5 @@
 /// Schedule engine: evaluates BACnet Schedule objects each tick and writes
 /// their present_value to linked object-property references.
-
 use bacnet_object::store::ObjectStore;
 use bacnet_types::{DeviceId, ObjectId, PropertyIdentifier, PropertyValue};
 use std::sync::Arc;
@@ -22,7 +21,10 @@ pub struct ScheduleEngine {
 
 impl ScheduleEngine {
     pub fn new(store: Arc<ObjectStore>) -> Self {
-        Self { store, outputs: Vec::new() }
+        Self {
+            store,
+            outputs: Vec::new(),
+        }
     }
 
     pub fn add_output(&mut self, output: ScheduleOutput) {

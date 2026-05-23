@@ -1,5 +1,4 @@
 /// Virtual device handler — processes APDU service requests for one simulated device.
-
 use bacnet_types::DeviceId;
 
 /// Placeholder trait for a device's APDU service handler.

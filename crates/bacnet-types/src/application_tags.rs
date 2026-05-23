@@ -21,20 +21,20 @@ pub enum ApplicationTag {
 impl ApplicationTag {
     pub fn from_u8(v: u8) -> Option<Self> {
         match v {
-            0  => Some(Self::Null),
-            1  => Some(Self::Boolean),
-            2  => Some(Self::UnsignedInt),
-            3  => Some(Self::SignedInt),
-            4  => Some(Self::Real),
-            5  => Some(Self::Double),
-            6  => Some(Self::OctetString),
-            7  => Some(Self::CharacterString),
-            8  => Some(Self::BitString),
-            9  => Some(Self::Enumerated),
+            0 => Some(Self::Null),
+            1 => Some(Self::Boolean),
+            2 => Some(Self::UnsignedInt),
+            3 => Some(Self::SignedInt),
+            4 => Some(Self::Real),
+            5 => Some(Self::Double),
+            6 => Some(Self::OctetString),
+            7 => Some(Self::CharacterString),
+            8 => Some(Self::BitString),
+            9 => Some(Self::Enumerated),
             10 => Some(Self::Date),
             11 => Some(Self::Time),
             12 => Some(Self::BacnetObjectId),
-            _  => None,
+            _ => None,
         }
     }
 }

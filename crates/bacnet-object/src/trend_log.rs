@@ -1,12 +1,10 @@
 /// TrendLog object (ASHRAE 135-2020 §12.25).
 /// Stores a bounded ring buffer of timestamped property values.
-
 use std::collections::VecDeque;
 use std::time::{Duration, Instant, SystemTime};
 
 use bacnet_types::{
-    DeviceId, ObjectId, ObjectType, PropertyIdentifier, PropertyValue,
-    error::BacnetError,
+    error::BacnetError, DeviceId, ObjectId, ObjectType, PropertyIdentifier, PropertyValue,
 };
 
 use crate::property::BacnetObject;
@@ -43,7 +41,10 @@ impl TrendLog {
     pub fn new(device_id: DeviceId, instance: u32, name: impl Into<String>) -> Self {
         Self {
             device_id,
-            object_id: ObjectId { object_type: ObjectType::TrendLog, instance },
+            object_id: ObjectId {
+                object_type: ObjectType::TrendLog,
+                instance,
+            },
             object_name: name.into(),
             description: String::new(),
             enable: true,
@@ -90,28 +91,27 @@ impl BacnetObject for TrendLog {
         _array_index: Option<u32>,
     ) -> Result<PropertyValue, BacnetError> {
         match property_id {
-            PropertyIdentifier::ObjectIdentifier =>
-                Ok(PropertyValue::ObjectId(self.object_id)),
-            PropertyIdentifier::ObjectName =>
-                Ok(PropertyValue::CharacterString(self.object_name.clone())),
-            PropertyIdentifier::ObjectType =>
-                Ok(PropertyValue::Enumerated(ObjectType::TrendLog as u32)),
-            PropertyIdentifier::Description =>
-                Ok(PropertyValue::CharacterString(self.description.clone())),
-            PropertyIdentifier::Enable =>
-                Ok(PropertyValue::Boolean(self.enable)),
-            PropertyIdentifier::LogInterval =>
-                Ok(PropertyValue::Unsigned(self.log_interval.as_secs() as u32)),
-            PropertyIdentifier::BufferSize =>
-                Ok(PropertyValue::Unsigned(self.buffer_size as u32)),
-            PropertyIdentifier::RecordCount =>
-                Ok(PropertyValue::Unsigned(self.record_count)),
-            PropertyIdentifier::TotalRecordCount =>
-                Ok(PropertyValue::Unsigned(self.total_record_count)),
-            PropertyIdentifier::OutOfService =>
-                Ok(PropertyValue::Boolean(self.out_of_service)),
-            PropertyIdentifier::StopWhenFull =>
-                Ok(PropertyValue::Boolean(false)),
+            PropertyIdentifier::ObjectIdentifier => Ok(PropertyValue::ObjectId(self.object_id)),
+            PropertyIdentifier::ObjectName => {
+                Ok(PropertyValue::CharacterString(self.object_name.clone()))
+            }
+            PropertyIdentifier::ObjectType => {
+                Ok(PropertyValue::Enumerated(ObjectType::TrendLog as u32))
+            }
+            PropertyIdentifier::Description => {
+                Ok(PropertyValue::CharacterString(self.description.clone()))
+            }
+            PropertyIdentifier::Enable => Ok(PropertyValue::Boolean(self.enable)),
+            PropertyIdentifier::LogInterval => {
+                Ok(PropertyValue::Unsigned(self.log_interval.as_secs() as u32))
+            }
+            PropertyIdentifier::BufferSize => Ok(PropertyValue::Unsigned(self.buffer_size as u32)),
+            PropertyIdentifier::RecordCount => Ok(PropertyValue::Unsigned(self.record_count)),
+            PropertyIdentifier::TotalRecordCount => {
+                Ok(PropertyValue::Unsigned(self.total_record_count))
+            }
+            PropertyIdentifier::OutOfService => Ok(PropertyValue::Boolean(self.out_of_service)),
+            PropertyIdentifier::StopWhenFull => Ok(PropertyValue::Boolean(false)),
             _ => Err(BacnetError::UnknownProperty),
         }
     }
@@ -180,17 +180,50 @@ impl BacnetObject for TrendLog {
 
     fn all_properties(&self) -> Vec<(PropertyIdentifier, PropertyValue)> {
         vec![
-            (PropertyIdentifier::ObjectIdentifier, PropertyValue::ObjectId(self.object_id)),
-            (PropertyIdentifier::ObjectName, PropertyValue::CharacterString(self.object_name.clone())),
-            (PropertyIdentifier::ObjectType, PropertyValue::Enumerated(ObjectType::TrendLog as u32)),
-            (PropertyIdentifier::Description, PropertyValue::CharacterString(self.description.clone())),
-            (PropertyIdentifier::Enable, PropertyValue::Boolean(self.enable)),
-            (PropertyIdentifier::BufferSize, PropertyValue::Unsigned(self.buffer_size as u32)),
-            (PropertyIdentifier::LogInterval, PropertyValue::Unsigned(self.log_interval.as_secs() as u32)),
-            (PropertyIdentifier::RecordCount, PropertyValue::Unsigned(self.record_count)),
-            (PropertyIdentifier::TotalRecordCount, PropertyValue::Unsigned(self.total_record_count)),
-            (PropertyIdentifier::OutOfService, PropertyValue::Boolean(self.out_of_service)),
-            (PropertyIdentifier::StopWhenFull, PropertyValue::Boolean(false)),
+            (
+                PropertyIdentifier::ObjectIdentifier,
+                PropertyValue::ObjectId(self.object_id),
+            ),
+            (
+                PropertyIdentifier::ObjectName,
+                PropertyValue::CharacterString(self.object_name.clone()),
+            ),
+            (
+                PropertyIdentifier::ObjectType,
+                PropertyValue::Enumerated(ObjectType::TrendLog as u32),
+            ),
+            (
+                PropertyIdentifier::Description,
+                PropertyValue::CharacterString(self.description.clone()),
+            ),
+            (
+                PropertyIdentifier::Enable,
+                PropertyValue::Boolean(self.enable),
+            ),
+            (
+                PropertyIdentifier::BufferSize,
+                PropertyValue::Unsigned(self.buffer_size as u32),
+            ),
+            (
+                PropertyIdentifier::LogInterval,
+                PropertyValue::Unsigned(self.log_interval.as_secs() as u32),
+            ),
+            (
+                PropertyIdentifier::RecordCount,
+                PropertyValue::Unsigned(self.record_count),
+            ),
+            (
+                PropertyIdentifier::TotalRecordCount,
+                PropertyValue::Unsigned(self.total_record_count),
+            ),
+            (
+                PropertyIdentifier::OutOfService,
+                PropertyValue::Boolean(self.out_of_service),
+            ),
+            (
+                PropertyIdentifier::StopWhenFull,
+                PropertyValue::Boolean(false),
+            ),
         ]
     }
 }
@@ -224,7 +257,13 @@ mod tests {
         let mut tl = TrendLog::new(dev, 1, "TL-01");
         tl.record(PropertyValue::Real(1.0));
         tl.record(PropertyValue::Real(2.0));
-        tl.write_property(PropertyIdentifier::RecordCount, None, PropertyValue::Unsigned(0), None).unwrap();
+        tl.write_property(
+            PropertyIdentifier::RecordCount,
+            None,
+            PropertyValue::Unsigned(0),
+            None,
+        )
+        .unwrap();
         assert_eq!(tl.record_count, 0);
         assert!(tl.log_buffer.is_empty());
     }

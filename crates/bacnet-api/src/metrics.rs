@@ -2,11 +2,9 @@
 ///
 /// All metrics are registered once via `OnceLock` and updated from the
 /// simulation engine tick loop and APDU dispatcher.
-
 use prometheus::{
-    register_counter_vec, register_gauge, register_histogram_vec,
-    CounterVec, Gauge, HistogramVec, TextEncoder, Encoder,
-    exponential_buckets,
+    exponential_buckets, register_counter_vec, register_gauge, register_histogram_vec, CounterVec,
+    Encoder, Gauge, HistogramVec, TextEncoder,
 };
 use std::sync::OnceLock;
 
@@ -22,15 +20,13 @@ static ACTIVE_COV_SUBSCRIPTIONS: OnceLock<Gauge> = OnceLock::new();
 static TICK_DURATION_SECONDS: OnceLock<HistogramVec> = OnceLock::new();
 
 fn devices_total() -> &'static Gauge {
-    DEVICES_TOTAL.get_or_init(|| {
-        register_gauge!("bacnet_devices_total", "Total simulated devices").unwrap()
-    })
+    DEVICES_TOTAL
+        .get_or_init(|| register_gauge!("bacnet_devices_total", "Total simulated devices").unwrap())
 }
 
 fn objects_total() -> &'static Gauge {
-    OBJECTS_TOTAL.get_or_init(|| {
-        register_gauge!("bacnet_objects_total", "Total simulated objects").unwrap()
-    })
+    OBJECTS_TOTAL
+        .get_or_init(|| register_gauge!("bacnet_objects_total", "Total simulated objects").unwrap())
 }
 
 pub fn requests_total() -> &'static CounterVec {
@@ -91,10 +87,14 @@ pub fn inc_requests(service: &str, result: &str) {
     requests_total().with_label_values(&[service, result]).inc();
 }
 pub fn inc_cov_notifications(transport: &str) {
-    cov_notifications_total().with_label_values(&[transport]).inc();
+    cov_notifications_total()
+        .with_label_values(&[transport])
+        .inc();
 }
 pub fn inc_cov_notifications_n(transport: &str, n: u64) {
-    cov_notifications_total().with_label_values(&[transport]).inc_by(n as f64);
+    cov_notifications_total()
+        .with_label_values(&[transport])
+        .inc_by(n as f64);
 }
 pub fn set_active_cov_subscriptions(n: f64) {
     active_cov_subscriptions().set(n);
@@ -113,6 +113,8 @@ pub fn gather() -> String {
     let encoder = TextEncoder::new();
     let metric_families = prometheus::gather();
     let mut buf = Vec::new();
-    encoder.encode(&metric_families, &mut buf).unwrap_or_default();
+    encoder
+        .encode(&metric_families, &mut buf)
+        .unwrap_or_default();
     String::from_utf8(buf).unwrap_or_default()
 }

@@ -399,4 +399,3 @@ fn encode_error_pdu(invoke_id: u8, service_choice: u8, e: &BacnetError) -> Bytes
     .encode(&mut buf);
     buf
 }
-

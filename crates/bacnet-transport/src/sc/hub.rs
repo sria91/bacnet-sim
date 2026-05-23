@@ -1,7 +1,6 @@
 /// BACnet/SC hub — accepts WebSocket connections from SC nodes, performs the
 /// ConnectRequest/ConnectAccept handshake, and routes EncapsulatedNPDU frames
 /// between connected nodes.
-
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -15,7 +14,6 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::accept_async;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
-
 
 /// Per-node send handle kept in the hub registry.
 struct NodeHandle {
@@ -136,7 +134,8 @@ impl ScHub {
             destination_vmac: None,
             payload: Bytes::new(),
         };
-        ws.send(Message::Binary(accept.encode().to_vec().into())).await?;
+        ws.send(Message::Binary(accept.encode().to_vec().into()))
+            .await?;
         info!(?node_id, vmac = ?vmac, "SC: node connected");
 
         // Register node
@@ -149,7 +148,11 @@ impl ScHub {
         // Outbound task: forward queued frames to the WS
         let outbound = tokio::spawn(async move {
             while let Some(bytes) = rx.recv().await {
-                if sink.send(Message::Binary(bytes.to_vec().into())).await.is_err() {
+                if sink
+                    .send(Message::Binary(bytes.to_vec().into()))
+                    .await
+                    .is_err()
+                {
                     break;
                 }
             }
@@ -209,4 +212,3 @@ impl std::fmt::Display for ScHubError {
         }
     }
 }
-

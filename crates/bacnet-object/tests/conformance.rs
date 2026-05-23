@@ -4,14 +4,10 @@
 /// property and behaviour rules from ASHRAE 135-2020 §12.
 ///
 /// Run with: cargo test -p bacnet-object --test conformance
-
 use std::sync::Arc;
 
 use bacnet_object::{
-    analog_input::AnalogInput,
-    binary_input::BinaryInput,
-    device::DeviceObject,
-    store::ObjectStore,
+    analog_input::AnalogInput, binary_input::BinaryInput, device::DeviceObject, store::ObjectStore,
 };
 use bacnet_types::{
     error::BacnetError,
@@ -27,13 +23,29 @@ use bacnet_types::{
 fn make_store_with_ai() -> (Arc<ObjectStore>, DeviceId, ObjectId) {
     let store = Arc::new(ObjectStore::new());
     let did = DeviceId(500);
-    let oid = ObjectId { object_type: ObjectType::AnalogInput, instance: 1 };
+    let oid = ObjectId {
+        object_type: ObjectType::AnalogInput,
+        instance: 1,
+    };
     store.insert(did, Box::new(DeviceObject::new(did, "test-device")));
-    store.insert(did, Box::new(AnalogInput::new(did, 1, "AI-01", EngineeringUnits::DegreesCelsius)));
+    store.insert(
+        did,
+        Box::new(AnalogInput::new(
+            did,
+            1,
+            "AI-01",
+            EngineeringUnits::DegreesCelsius,
+        )),
+    );
     (store, did, oid)
 }
 
-fn read(store: &ObjectStore, did: DeviceId, oid: ObjectId, prop: PropertyIdentifier) -> Option<PropertyValue> {
+fn read(
+    store: &ObjectStore,
+    did: DeviceId,
+    oid: ObjectId,
+    prop: PropertyIdentifier,
+) -> Option<PropertyValue> {
     let obj = store.get(did, oid)?;
     let guard = obj.read_guard();
     guard.read_property(prop, None).ok()
@@ -48,7 +60,10 @@ fn read(store: &ObjectStore, did: DeviceId, oid: ObjectId, prop: PropertyIdentif
 fn device_object_has_all_required_properties() {
     let store = Arc::new(ObjectStore::new());
     let did = DeviceId(1234);
-    let dev_oid = ObjectId { object_type: ObjectType::Device, instance: 1234 };
+    let dev_oid = ObjectId {
+        object_type: ObjectType::Device,
+        instance: 1234,
+    };
     store.insert(did, Box::new(DeviceObject::new(did, "conformance-dev")));
 
     let required = [
@@ -115,8 +130,8 @@ fn analog_input_has_all_required_properties() {
 #[test]
 fn analog_input_present_value_is_real() {
     let (store, did, oid) = make_store_with_ai();
-    let val = read(&store, did, oid, PropertyIdentifier::PresentValue)
-        .expect("PresentValue missing");
+    let val =
+        read(&store, did, oid, PropertyIdentifier::PresentValue).expect("PresentValue missing");
     assert!(
         matches!(val, PropertyValue::Real(_)),
         "PresentValue must be Real, got {val:?}"
@@ -127,17 +142,20 @@ fn analog_input_present_value_is_real() {
 #[test]
 fn analog_input_object_type_is_correct() {
     let (store, did, oid) = make_store_with_ai();
-    let val = read(&store, did, oid, PropertyIdentifier::ObjectType)
-        .expect("ObjectType missing");
-    assert_eq!(val, PropertyValue::Enumerated(0), "ObjectType must be AnalogInput (0)");
+    let val = read(&store, did, oid, PropertyIdentifier::ObjectType).expect("ObjectType missing");
+    assert_eq!(
+        val,
+        PropertyValue::Enumerated(0),
+        "ObjectType must be AnalogInput (0)"
+    );
 }
 
 /// Out_Of_Service defaults to false on a fresh AI.
 #[test]
 fn analog_input_out_of_service_defaults_false() {
     let (store, did, oid) = make_store_with_ai();
-    let val = read(&store, did, oid, PropertyIdentifier::OutOfService)
-        .expect("OutOfService missing");
+    let val =
+        read(&store, did, oid, PropertyIdentifier::OutOfService).expect("OutOfService missing");
     assert_eq!(val, PropertyValue::Boolean(false));
 }
 
@@ -145,8 +163,7 @@ fn analog_input_out_of_service_defaults_false() {
 #[test]
 fn analog_input_units_match_construction() {
     let (store, did, oid) = make_store_with_ai();
-    let val = read(&store, did, oid, PropertyIdentifier::Units)
-        .expect("Units missing");
+    let val = read(&store, did, oid, PropertyIdentifier::Units).expect("Units missing");
     // EngineeringUnits::DegreesCelsius = 62
     assert_eq!(val, PropertyValue::Enumerated(62));
 }
@@ -160,7 +177,10 @@ fn analog_input_units_match_construction() {
 fn binary_input_has_all_required_properties() {
     let store = Arc::new(ObjectStore::new());
     let did = DeviceId(501);
-    let oid = ObjectId { object_type: ObjectType::BinaryInput, instance: 1 };
+    let oid = ObjectId {
+        object_type: ObjectType::BinaryInput,
+        instance: 1,
+    };
     store.insert(did, Box::new(BinaryInput::new(did, 1, "BI-01")));
 
     let required = [
@@ -193,7 +213,10 @@ fn binary_input_has_all_required_properties() {
 fn unknown_object_returns_error() {
     let store = Arc::new(ObjectStore::new());
     let did = DeviceId(999);
-    let missing_oid = ObjectId { object_type: ObjectType::AnalogInput, instance: 9999 };
+    let missing_oid = ObjectId {
+        object_type: ObjectType::AnalogInput,
+        instance: 9999,
+    };
     let result = store.get(did, missing_oid);
     assert!(result.is_none(), "Non-existent object should not be found");
 }
@@ -244,14 +267,24 @@ fn object_store_multi_device_range() {
     for id in 1000u32..=1009 {
         let did = DeviceId(id);
         store.insert(did, Box::new(DeviceObject::new(did, format!("DEV-{id}"))));
-        store.insert(did, Box::new(AnalogInput::new(did, 1, "AI-01", EngineeringUnits::Kelvin)));
+        store.insert(
+            did,
+            Box::new(AnalogInput::new(did, 1, "AI-01", EngineeringUnits::Kelvin)),
+        );
     }
-    assert_eq!(store.count(), 20, "10 devices × 2 objects each = 20 total objects");
+    assert_eq!(
+        store.count(),
+        20,
+        "10 devices × 2 objects each = 20 total objects"
+    );
 
     // All Device objects are retrievable
     for id in 1000u32..=1009 {
         let did = DeviceId(id);
-        let dev_oid = ObjectId { object_type: ObjectType::Device, instance: id };
+        let dev_oid = ObjectId {
+            object_type: ObjectType::Device,
+            instance: id,
+        };
         let obj = store.get(did, dev_oid);
         assert!(obj.is_some(), "Device {id} should be in store");
     }
@@ -289,13 +322,25 @@ fn write_present_value_allowed_when_out_of_service() {
     {
         let mut guard = obj.write_guard();
         guard
-            .write_property(PropertyIdentifier::OutOfService, None, PropertyValue::Boolean(true), None)
+            .write_property(
+                PropertyIdentifier::OutOfService,
+                None,
+                PropertyValue::Boolean(true),
+                None,
+            )
             .expect("should allow writing OutOfService");
         guard
-            .write_property(PropertyIdentifier::PresentValue, None, PropertyValue::Real(42.0), None)
+            .write_property(
+                PropertyIdentifier::PresentValue,
+                None,
+                PropertyValue::Real(42.0),
+                None,
+            )
             .expect("should allow writing PresentValue when OOS");
     }
     let guard = obj.read_guard();
-    let pv = guard.read_property(PropertyIdentifier::PresentValue, None).unwrap();
+    let pv = guard
+        .read_property(PropertyIdentifier::PresentValue, None)
+        .unwrap();
     assert_eq!(pv, PropertyValue::Real(42.0));
 }

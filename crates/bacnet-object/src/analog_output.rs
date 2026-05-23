@@ -1,9 +1,8 @@
 /// Analog Output object (ASHRAE 135-2020 §12.3).
-
 use bacnet_types::{
-    DeviceId, ObjectId, ObjectType, PropertyIdentifier, PropertyValue,
-    property_value::{EngineeringUnits, EventState, Reliability, StatusFlags},
     error::BacnetError,
+    property_value::{EngineeringUnits, EventState, Reliability, StatusFlags},
+    DeviceId, ObjectId, ObjectType, PropertyIdentifier, PropertyValue,
 };
 use std::time::{Duration, Instant, SystemTime};
 
@@ -30,10 +29,18 @@ pub struct AnalogOutput {
 }
 
 impl AnalogOutput {
-    pub fn new(device_id: DeviceId, instance: u32, name: impl Into<String>, units: EngineeringUnits) -> Self {
+    pub fn new(
+        device_id: DeviceId,
+        instance: u32,
+        name: impl Into<String>,
+        units: EngineeringUnits,
+    ) -> Self {
         Self {
             device_id,
-            object_id: ObjectId { object_type: ObjectType::AnalogOutput, instance },
+            object_id: ObjectId {
+                object_type: ObjectType::AnalogOutput,
+                instance,
+            },
             object_name: name.into(),
             description: String::new(),
             present_value: 0.0,
@@ -60,8 +67,12 @@ impl AnalogOutput {
 }
 
 impl BacnetObject for AnalogOutput {
-    fn object_id(&self) -> ObjectId { self.object_id }
-    fn device_id(&self) -> DeviceId { self.device_id }
+    fn object_id(&self) -> ObjectId {
+        self.object_id
+    }
+    fn device_id(&self) -> DeviceId {
+        self.device_id
+    }
 
     fn read_property(
         &self,
@@ -69,29 +80,30 @@ impl BacnetObject for AnalogOutput {
         array_index: Option<u32>,
     ) -> Result<PropertyValue, BacnetError> {
         match property_id {
-            PropertyIdentifier::ObjectIdentifier =>
-                Ok(PropertyValue::ObjectId(self.object_id)),
-            PropertyIdentifier::ObjectName =>
-                Ok(PropertyValue::CharacterString(self.object_name.clone())),
-            PropertyIdentifier::ObjectType =>
-                Ok(PropertyValue::Enumerated(ObjectType::AnalogOutput as u32)),
-            PropertyIdentifier::PresentValue =>
-                Ok(PropertyValue::Real(self.effective_value())),
-            PropertyIdentifier::StatusFlags =>
-                Ok(PropertyValue::BitString(bacnet_types::property_value::BitString::from_bits(&[
+            PropertyIdentifier::ObjectIdentifier => Ok(PropertyValue::ObjectId(self.object_id)),
+            PropertyIdentifier::ObjectName => {
+                Ok(PropertyValue::CharacterString(self.object_name.clone()))
+            }
+            PropertyIdentifier::ObjectType => {
+                Ok(PropertyValue::Enumerated(ObjectType::AnalogOutput as u32))
+            }
+            PropertyIdentifier::PresentValue => Ok(PropertyValue::Real(self.effective_value())),
+            PropertyIdentifier::StatusFlags => Ok(PropertyValue::BitString(
+                bacnet_types::property_value::BitString::from_bits(&[
                     self.status_flags.in_alarm,
                     self.status_flags.fault,
                     self.status_flags.overridden,
                     self.status_flags.out_of_service,
-                ]))),
-            PropertyIdentifier::EventState =>
-                Ok(PropertyValue::Enumerated(self.event_state as u32)),
-            PropertyIdentifier::OutOfService =>
-                Ok(PropertyValue::Boolean(self.out_of_service)),
-            PropertyIdentifier::Units =>
-                Ok(PropertyValue::Enumerated(self.units as u32)),
-            PropertyIdentifier::RelinquishDefault =>
-                Ok(PropertyValue::Real(self.relinquish_default)),
+                ]),
+            )),
+            PropertyIdentifier::EventState => {
+                Ok(PropertyValue::Enumerated(self.event_state as u32))
+            }
+            PropertyIdentifier::OutOfService => Ok(PropertyValue::Boolean(self.out_of_service)),
+            PropertyIdentifier::Units => Ok(PropertyValue::Enumerated(self.units as u32)),
+            PropertyIdentifier::RelinquishDefault => {
+                Ok(PropertyValue::Real(self.relinquish_default))
+            }
             PropertyIdentifier::PriorityArray => {
                 if let Some(idx) = array_index {
                     let i = (idx as usize).saturating_sub(1).min(NUM_PRIORITIES - 1);
@@ -99,14 +111,17 @@ impl BacnetObject for AnalogOutput {
                         .map(PropertyValue::Real)
                         .unwrap_or(PropertyValue::Null))
                 } else {
-                    let arr = self.priority_array.iter()
+                    let arr = self
+                        .priority_array
+                        .iter()
                         .map(|v| v.map(PropertyValue::Real).unwrap_or(PropertyValue::Null))
                         .collect();
                     Ok(PropertyValue::Array(arr))
                 }
             }
-            PropertyIdentifier::Description =>
-                Ok(PropertyValue::CharacterString(self.description.clone())),
+            PropertyIdentifier::Description => {
+                Ok(PropertyValue::CharacterString(self.description.clone()))
+            }
             _ => Err(BacnetError::UnknownProperty),
         }
     }
@@ -163,14 +178,38 @@ impl BacnetObject for AnalogOutput {
 
     fn all_properties(&self) -> Vec<(PropertyIdentifier, PropertyValue)> {
         vec![
-            (PropertyIdentifier::ObjectIdentifier, PropertyValue::ObjectId(self.object_id)),
-            (PropertyIdentifier::ObjectName, PropertyValue::CharacterString(self.object_name.clone())),
-            (PropertyIdentifier::ObjectType, PropertyValue::Enumerated(ObjectType::AnalogOutput as u32)),
-            (PropertyIdentifier::PresentValue, PropertyValue::Real(self.effective_value())),
-            (PropertyIdentifier::OutOfService, PropertyValue::Boolean(self.out_of_service)),
-            (PropertyIdentifier::Units, PropertyValue::Enumerated(self.units as u32)),
-            (PropertyIdentifier::RelinquishDefault, PropertyValue::Real(self.relinquish_default)),
-            (PropertyIdentifier::Description, PropertyValue::CharacterString(self.description.clone())),
+            (
+                PropertyIdentifier::ObjectIdentifier,
+                PropertyValue::ObjectId(self.object_id),
+            ),
+            (
+                PropertyIdentifier::ObjectName,
+                PropertyValue::CharacterString(self.object_name.clone()),
+            ),
+            (
+                PropertyIdentifier::ObjectType,
+                PropertyValue::Enumerated(ObjectType::AnalogOutput as u32),
+            ),
+            (
+                PropertyIdentifier::PresentValue,
+                PropertyValue::Real(self.effective_value()),
+            ),
+            (
+                PropertyIdentifier::OutOfService,
+                PropertyValue::Boolean(self.out_of_service),
+            ),
+            (
+                PropertyIdentifier::Units,
+                PropertyValue::Enumerated(self.units as u32),
+            ),
+            (
+                PropertyIdentifier::RelinquishDefault,
+                PropertyValue::Real(self.relinquish_default),
+            ),
+            (
+                PropertyIdentifier::Description,
+                PropertyValue::CharacterString(self.description.clone()),
+            ),
         ]
     }
 }

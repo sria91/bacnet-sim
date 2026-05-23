@@ -1,8 +1,8 @@
-use bacnet_codec::apdu::{
-    ack::{ComplexAck, ComplexAckService, ObjectPropertyResult, PropertyResult},
+use bacnet_codec::apdu::ack::{
+    ComplexAck, ComplexAckService, ObjectPropertyResult, PropertyResult,
 };
 use bacnet_object::store::ObjectStore;
-use bacnet_types::{DeviceId, ObjectId, PropertyIdentifier, error::BacnetError};
+use bacnet_types::{error::BacnetError, DeviceId, ObjectId, PropertyIdentifier};
 
 pub async fn handle_read_property_multiple(
     specs: Vec<(ObjectId, Vec<(PropertyIdentifier, Option<u32>)>)>,
@@ -27,10 +27,12 @@ pub async fn handle_read_property_multiple(
                 let guard = obj.read_guard();
                 let has_all = props.iter().any(|(p, _)| *p == PropertyIdentifier::All);
                 if has_all {
-                    property_results.extend(guard.all_properties().into_iter().map(|(pid, v)| PropertyResult {
-                        property_id: pid,
-                        array_index: None,
-                        value: Ok(v),
+                    property_results.extend(guard.all_properties().into_iter().map(|(pid, v)| {
+                        PropertyResult {
+                            property_id: pid,
+                            array_index: None,
+                            value: Ok(v),
+                        }
                     }));
                 } else {
                     for (prop_id, array_index) in props {
@@ -44,7 +46,10 @@ pub async fn handle_read_property_multiple(
                 }
             }
         }
-        results.push(ObjectPropertyResult { object_id, property_results });
+        results.push(ObjectPropertyResult {
+            object_id,
+            property_results,
+        });
     }
     ComplexAck {
         invoke_id,

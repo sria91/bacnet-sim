@@ -4,7 +4,6 @@
 /// load, large subscription counts, expiry edge cases, and bulk data insertion.
 ///
 /// Run with: cargo test -p bacnet-sim-engine --test chaos
-
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -27,7 +26,10 @@ fn sub_key(process_id: u32, device_id: u32, instance: u32) -> CovSubKey {
             mac: MacAddr::Ip(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 47808)),
         },
         process_id,
-        object_id: ObjectId { object_type: ObjectType::AnalogInput, instance },
+        object_id: ObjectId {
+            object_type: ObjectType::AnalogInput,
+            instance,
+        },
         device_id: DeviceId(device_id),
     }
 }
@@ -110,7 +112,11 @@ fn chaos_rapid_subscribe_unsubscribe_leaves_clean_state() {
         engine.unsubscribe(&key);
     }
 
-    assert_eq!(engine.active_count(), 0, "All subscriptions should be removed");
+    assert_eq!(
+        engine.active_count(),
+        0,
+        "All subscriptions should be removed"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -123,7 +129,10 @@ fn chaos_cov_fires_on_threshold_change() {
     let (engine, mut rx) = CovEngine::new();
 
     let device_id = DeviceId(1);
-    let object_id = ObjectId { object_type: ObjectType::AnalogInput, instance: 1 };
+    let object_id = ObjectId {
+        object_type: ObjectType::AnalogInput,
+        instance: 1,
+    };
     let subscriber = NetworkAddress {
         network_number: 0,
         mac: MacAddr::Ip(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 47808)),
@@ -149,7 +158,9 @@ fn chaos_cov_fires_on_threshold_change() {
     );
     assert!(notified, "Should have triggered a COV notification");
 
-    let notification = rx.try_recv().expect("Expected a notification in the channel");
+    let notification = rx
+        .try_recv()
+        .expect("Expected a notification in the channel");
     assert_eq!(notification.device_id, device_id);
     assert_eq!(notification.object_id, object_id);
 }
@@ -160,7 +171,10 @@ fn chaos_cov_does_not_fire_below_increment() {
     let (engine, mut rx) = CovEngine::new();
 
     let device_id = DeviceId(2);
-    let object_id = ObjectId { object_type: ObjectType::AnalogInput, instance: 1 };
+    let object_id = ObjectId {
+        object_type: ObjectType::AnalogInput,
+        instance: 1,
+    };
 
     let key = CovSubKey {
         subscriber: NetworkAddress {
@@ -183,8 +197,14 @@ fn chaos_cov_does_not_fire_below_increment() {
         PropertyIdentifier::PresentValue,
         &PropertyValue::Real(10.1),
     );
-    assert!(!notified, "Should NOT have triggered a COV notification for sub-increment change");
-    assert!(rx.try_recv().is_err(), "No notification should be in channel");
+    assert!(
+        !notified,
+        "Should NOT have triggered a COV notification for sub-increment change"
+    );
+    assert!(
+        rx.try_recv().is_err(),
+        "No notification should be in channel"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -217,8 +237,14 @@ fn chaos_bulk_insert_1000_objects() {
 
     // Verify a sample
     for instance in [1u32, 500, 1000] {
-        let oid = ObjectId { object_type: ObjectType::AnalogInput, instance };
-        assert!(store.get(did, oid).is_some(), "AI-{instance} should be in store");
+        let oid = ObjectId {
+            object_type: ObjectType::AnalogInput,
+            instance,
+        };
+        assert!(
+            store.get(did, oid).is_some(),
+            "AI-{instance} should be in store"
+        );
     }
 
     // Bulk insert of 1 000 small objects should complete well within 1 second.
@@ -242,7 +268,12 @@ fn chaos_concurrent_reads_are_consistent() {
     for i in 1u32..=50 {
         store.insert(
             did,
-            Box::new(AnalogInput::new(did, i, format!("AI-{i}"), EngineeringUnits::Kelvin)),
+            Box::new(AnalogInput::new(
+                did,
+                i,
+                format!("AI-{i}"),
+                EngineeringUnits::Kelvin,
+            )),
         );
     }
 
@@ -251,7 +282,10 @@ fn chaos_concurrent_reads_are_consistent() {
             let s = Arc::clone(&store);
             thread::spawn(move || {
                 for instance in 1u32..=50 {
-                    let oid = ObjectId { object_type: ObjectType::AnalogInput, instance };
+                    let oid = ObjectId {
+                        object_type: ObjectType::AnalogInput,
+                        instance,
+                    };
                     if let Some(obj) = s.get(did, oid) {
                         let guard = obj.read_guard();
                         let _pv = guard.read_property(PropertyIdentifier::PresentValue, None);
@@ -275,16 +309,38 @@ fn chaos_concurrent_reads_are_consistent() {
 fn chaos_duplicate_insert_overwrites_not_grows() {
     let store = Arc::new(ObjectStore::new());
     let did = DeviceId(30);
-    let oid = ObjectId { object_type: ObjectType::AnalogInput, instance: 1 };
+    let oid = ObjectId {
+        object_type: ObjectType::AnalogInput,
+        instance: 1,
+    };
 
-    store.insert(did, Box::new(AnalogInput::new(did, 1, "first", EngineeringUnits::NoUnits)));
-    store.insert(did, Box::new(AnalogInput::new(did, 1, "second", EngineeringUnits::NoUnits)));
+    store.insert(
+        did,
+        Box::new(AnalogInput::new(did, 1, "first", EngineeringUnits::NoUnits)),
+    );
+    store.insert(
+        did,
+        Box::new(AnalogInput::new(
+            did,
+            1,
+            "second",
+            EngineeringUnits::NoUnits,
+        )),
+    );
 
     // Only one entry should exist for this key.
-    assert_eq!(store.count(), 1, "Duplicate insert should overwrite, not add a second entry");
-    let obj = store.get(did, oid).expect("Object not found after duplicate insert");
+    assert_eq!(
+        store.count(),
+        1,
+        "Duplicate insert should overwrite, not add a second entry"
+    );
+    let obj = store
+        .get(did, oid)
+        .expect("Object not found after duplicate insert");
     let guard = obj.read_guard();
-    let name = guard.read_property(PropertyIdentifier::ObjectName, None).unwrap();
+    let name = guard
+        .read_property(PropertyIdentifier::ObjectName, None)
+        .unwrap();
     // The second insert should win.
     assert_eq!(name, PropertyValue::CharacterString("second".to_string()));
 }

@@ -1,8 +1,8 @@
-use bacnet_types::{ObjectId, PropertyIdentifier, PropertyValue, error::BacnetError};
 use bacnet_types::encoding::{
     application::encode_property_value,
-    tags::{encode_ctx_object_id, encode_ctx_u32, encode_opening_tag, encode_closing_tag},
+    tags::{encode_closing_tag, encode_ctx_object_id, encode_ctx_u32, encode_opening_tag},
 };
+use bacnet_types::{error::BacnetError, ObjectId, PropertyIdentifier, PropertyValue};
 use bytes::{BufMut, BytesMut};
 
 /// ReadProperty ACK payload.
@@ -86,7 +86,8 @@ impl ComplexAck {
         }
         if (buf[0] & 0xF0) != 0x30 {
             return Err(BacnetError::DecodeError(format!(
-                "expected ComplexACK, got {:#02x}", buf[0]
+                "expected ComplexACK, got {:#02x}",
+                buf[0]
             )));
         }
         Ok(Self {
@@ -156,32 +157,35 @@ fn encode_rpm_ack(buf: &mut BytesMut, results: &[ObjectPropertyResult]) {
 /// Map a `BacnetError` to `(error_class, error_code)` numeric values.
 fn error_class_code(e: &BacnetError) -> (u32, u32) {
     match e {
-        BacnetError::UnknownObject    => (1, 31), // Object / UnknownObject
-        BacnetError::UnknownProperty  => (2, 32), // Property / UnknownProperty
-        BacnetError::WriteAccessDenied=> (2, 40), // Property / WriteAccessDenied
-        BacnetError::ValueOutOfRange  => (2, 37), // Property / ValueOutOfRange
-        BacnetError::InvalidDataType  => (2, 9),  // Property / InvalidDataType
-        BacnetError::ServiceError { error_class, error_code } => {
+        BacnetError::UnknownObject => (1, 31), // Object / UnknownObject
+        BacnetError::UnknownProperty => (2, 32), // Property / UnknownProperty
+        BacnetError::WriteAccessDenied => (2, 40), // Property / WriteAccessDenied
+        BacnetError::ValueOutOfRange => (2, 37), // Property / ValueOutOfRange
+        BacnetError::InvalidDataType => (2, 9), // Property / InvalidDataType
+        BacnetError::ServiceError {
+            error_class,
+            error_code,
+        } => {
             use bacnet_types::error::{ErrorClass, ErrorCode};
             let ec: u32 = match error_class {
-                ErrorClass::Device        => 0,
-                ErrorClass::Object        => 1,
-                ErrorClass::Property      => 2,
-                ErrorClass::Resources     => 3,
-                ErrorClass::Security      => 4,
-                ErrorClass::Services      => 5,
-                ErrorClass::Vt            => 6,
+                ErrorClass::Device => 0,
+                ErrorClass::Object => 1,
+                ErrorClass::Property => 2,
+                ErrorClass::Resources => 3,
+                ErrorClass::Security => 4,
+                ErrorClass::Services => 5,
+                ErrorClass::Vt => 6,
                 ErrorClass::Communication => 7,
             };
             let code: u32 = match error_code {
-                ErrorCode::UnknownObject       => 31,
-                ErrorCode::UnknownProperty     => 32,
-                ErrorCode::WriteAccessDenied   => 40,
-                ErrorCode::ValueOutOfRange     => 37,
-                ErrorCode::InvalidDataType     => 9,
+                ErrorCode::UnknownObject => 31,
+                ErrorCode::UnknownProperty => 32,
+                ErrorCode::WriteAccessDenied => 40,
+                ErrorCode::ValueOutOfRange => 37,
+                ErrorCode::InvalidDataType => 9,
                 ErrorCode::ServiceRequestDenied => 29,
-                ErrorCode::NotConfigured       => 140,
-                ErrorCode::Other(v)            => *v,
+                ErrorCode::NotConfigured => 140,
+                ErrorCode::Other(v) => *v,
             };
             (ec, code)
         }
@@ -203,4 +207,3 @@ impl SimpleAck {
         buf.put_u8(self.service_choice);
     }
 }
-

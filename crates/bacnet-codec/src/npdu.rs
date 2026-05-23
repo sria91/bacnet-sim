@@ -1,7 +1,6 @@
 /// BACnet NPDU (Network Protocol Data Unit) codec.
 ///
 /// The NPDU carries routing information between the BVLL and APDU layers.
-
 use bacnet_types::error::BacnetError;
 use bytes::{BufMut, Bytes, BytesMut};
 
@@ -50,7 +49,9 @@ impl Npdu {
         }
         let version = buf[0];
         if version != 0x01 {
-            return Err(BacnetError::DecodeError(format!("unknown NPDU version {version:#02x}")));
+            return Err(BacnetError::DecodeError(format!(
+                "unknown NPDU version {version:#02x}"
+            )));
         }
         let ctrl_byte = buf[1];
         let control = NpduControl {
@@ -98,7 +99,9 @@ impl Npdu {
         // Hop count present when destination specifier set
         let hop_count = if control.destination_specifier {
             if buf.len() <= pos {
-                return Err(BacnetError::DecodeError("NPDU too short for hop count".into()));
+                return Err(BacnetError::DecodeError(
+                    "NPDU too short for hop count".into(),
+                ));
             }
             let h = buf[pos];
             pos += 1;
@@ -108,6 +111,13 @@ impl Npdu {
         };
 
         let apdu = Bytes::copy_from_slice(&buf[pos..]);
-        Ok(Self { version, control, destination, source, hop_count, apdu })
+        Ok(Self {
+            version,
+            control,
+            destination,
+            source,
+            hop_count,
+            apdu,
+        })
     }
 }

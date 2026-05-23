@@ -1,9 +1,8 @@
 /// Analog Input object (ASHRAE 135-2020 §12.2).
-
 use bacnet_types::{
-    DeviceId, ObjectId, ObjectType, PropertyIdentifier, PropertyValue,
-    property_value::{EngineeringUnits, EventState, Reliability, StatusFlags},
     error::BacnetError,
+    property_value::{EngineeringUnits, EventState, Reliability, StatusFlags},
+    DeviceId, ObjectId, ObjectType, PropertyIdentifier, PropertyValue,
 };
 use std::time::{Duration, Instant, SystemTime};
 
@@ -36,10 +35,18 @@ pub struct AnalogInput {
 }
 
 impl AnalogInput {
-    pub fn new(device_id: DeviceId, instance: u32, name: impl Into<String>, units: EngineeringUnits) -> Self {
+    pub fn new(
+        device_id: DeviceId,
+        instance: u32,
+        name: impl Into<String>,
+        units: EngineeringUnits,
+    ) -> Self {
         Self {
             device_id,
-            object_id: ObjectId { object_type: ObjectType::AnalogInput, instance },
+            object_id: ObjectId {
+                object_type: ObjectType::AnalogInput,
+                instance,
+            },
             object_name: name.into(),
             description: String::new(),
             present_value: 0.0,
@@ -64,8 +71,12 @@ impl AnalogInput {
 }
 
 impl BacnetObject for AnalogInput {
-    fn object_id(&self) -> ObjectId { self.object_id }
-    fn device_id(&self) -> DeviceId { self.device_id }
+    fn object_id(&self) -> ObjectId {
+        self.object_id
+    }
+    fn device_id(&self) -> DeviceId {
+        self.device_id
+    }
 
     fn read_property(
         &self,
@@ -73,34 +84,37 @@ impl BacnetObject for AnalogInput {
         _array_index: Option<u32>,
     ) -> Result<PropertyValue, BacnetError> {
         match property_id {
-            PropertyIdentifier::ObjectIdentifier =>
-                Ok(PropertyValue::ObjectId(self.object_id)),
-            PropertyIdentifier::ObjectName =>
-                Ok(PropertyValue::CharacterString(self.object_name.clone())),
-            PropertyIdentifier::ObjectType =>
-                Ok(PropertyValue::Enumerated(ObjectType::AnalogInput as u32)),
-            PropertyIdentifier::PresentValue =>
-                Ok(PropertyValue::Real(self.present_value)),
-            PropertyIdentifier::StatusFlags =>
-                Ok(PropertyValue::BitString(status_flags_bits(&self.status_flags))),
-            PropertyIdentifier::EventState =>
-                Ok(PropertyValue::Enumerated(self.event_state as u32)),
-            PropertyIdentifier::Reliability =>
-                Ok(PropertyValue::Enumerated(self.reliability as u32)),
-            PropertyIdentifier::OutOfService =>
-                Ok(PropertyValue::Boolean(self.out_of_service)),
-            PropertyIdentifier::Units =>
-                Ok(PropertyValue::Enumerated(self.units as u32)),
-            PropertyIdentifier::Description =>
-                Ok(PropertyValue::CharacterString(self.description.clone())),
-            PropertyIdentifier::CovIncrement =>
-                Ok(PropertyValue::Real(self.cov_increment)),
-            PropertyIdentifier::HighLimit =>
-                self.high_limit.map(PropertyValue::Real)
-                    .ok_or(BacnetError::UnknownProperty),
-            PropertyIdentifier::LowLimit =>
-                self.low_limit.map(PropertyValue::Real)
-                    .ok_or(BacnetError::UnknownProperty),
+            PropertyIdentifier::ObjectIdentifier => Ok(PropertyValue::ObjectId(self.object_id)),
+            PropertyIdentifier::ObjectName => {
+                Ok(PropertyValue::CharacterString(self.object_name.clone()))
+            }
+            PropertyIdentifier::ObjectType => {
+                Ok(PropertyValue::Enumerated(ObjectType::AnalogInput as u32))
+            }
+            PropertyIdentifier::PresentValue => Ok(PropertyValue::Real(self.present_value)),
+            PropertyIdentifier::StatusFlags => Ok(PropertyValue::BitString(status_flags_bits(
+                &self.status_flags,
+            ))),
+            PropertyIdentifier::EventState => {
+                Ok(PropertyValue::Enumerated(self.event_state as u32))
+            }
+            PropertyIdentifier::Reliability => {
+                Ok(PropertyValue::Enumerated(self.reliability as u32))
+            }
+            PropertyIdentifier::OutOfService => Ok(PropertyValue::Boolean(self.out_of_service)),
+            PropertyIdentifier::Units => Ok(PropertyValue::Enumerated(self.units as u32)),
+            PropertyIdentifier::Description => {
+                Ok(PropertyValue::CharacterString(self.description.clone()))
+            }
+            PropertyIdentifier::CovIncrement => Ok(PropertyValue::Real(self.cov_increment)),
+            PropertyIdentifier::HighLimit => self
+                .high_limit
+                .map(PropertyValue::Real)
+                .ok_or(BacnetError::UnknownProperty),
+            PropertyIdentifier::LowLimit => self
+                .low_limit
+                .map(PropertyValue::Real)
+                .ok_or(BacnetError::UnknownProperty),
             _ => Err(BacnetError::UnknownProperty),
         }
     }
@@ -147,7 +161,10 @@ impl BacnetObject for AnalogInput {
 
     fn changed_since(&self, since: Instant) -> Vec<PropertyIdentifier> {
         if self.last_changed >= since {
-            vec![PropertyIdentifier::PresentValue, PropertyIdentifier::StatusFlags]
+            vec![
+                PropertyIdentifier::PresentValue,
+                PropertyIdentifier::StatusFlags,
+            ]
         } else {
             vec![]
         }
@@ -155,17 +172,50 @@ impl BacnetObject for AnalogInput {
 
     fn all_properties(&self) -> Vec<(PropertyIdentifier, PropertyValue)> {
         let mut props = vec![
-            (PropertyIdentifier::ObjectIdentifier, PropertyValue::ObjectId(self.object_id)),
-            (PropertyIdentifier::ObjectName, PropertyValue::CharacterString(self.object_name.clone())),
-            (PropertyIdentifier::ObjectType, PropertyValue::Enumerated(ObjectType::AnalogInput as u32)),
-            (PropertyIdentifier::PresentValue, PropertyValue::Real(self.present_value)),
-            (PropertyIdentifier::StatusFlags, PropertyValue::BitString(status_flags_bits(&self.status_flags))),
-            (PropertyIdentifier::EventState, PropertyValue::Enumerated(self.event_state as u32)),
-            (PropertyIdentifier::Reliability, PropertyValue::Enumerated(self.reliability as u32)),
-            (PropertyIdentifier::OutOfService, PropertyValue::Boolean(self.out_of_service)),
-            (PropertyIdentifier::Units, PropertyValue::Enumerated(self.units as u32)),
-            (PropertyIdentifier::Description, PropertyValue::CharacterString(self.description.clone())),
-            (PropertyIdentifier::CovIncrement, PropertyValue::Real(self.cov_increment)),
+            (
+                PropertyIdentifier::ObjectIdentifier,
+                PropertyValue::ObjectId(self.object_id),
+            ),
+            (
+                PropertyIdentifier::ObjectName,
+                PropertyValue::CharacterString(self.object_name.clone()),
+            ),
+            (
+                PropertyIdentifier::ObjectType,
+                PropertyValue::Enumerated(ObjectType::AnalogInput as u32),
+            ),
+            (
+                PropertyIdentifier::PresentValue,
+                PropertyValue::Real(self.present_value),
+            ),
+            (
+                PropertyIdentifier::StatusFlags,
+                PropertyValue::BitString(status_flags_bits(&self.status_flags)),
+            ),
+            (
+                PropertyIdentifier::EventState,
+                PropertyValue::Enumerated(self.event_state as u32),
+            ),
+            (
+                PropertyIdentifier::Reliability,
+                PropertyValue::Enumerated(self.reliability as u32),
+            ),
+            (
+                PropertyIdentifier::OutOfService,
+                PropertyValue::Boolean(self.out_of_service),
+            ),
+            (
+                PropertyIdentifier::Units,
+                PropertyValue::Enumerated(self.units as u32),
+            ),
+            (
+                PropertyIdentifier::Description,
+                PropertyValue::CharacterString(self.description.clone()),
+            ),
+            (
+                PropertyIdentifier::CovIncrement,
+                PropertyValue::Real(self.cov_increment),
+            ),
         ];
         if let Some(hi) = self.high_limit {
             props.push((PropertyIdentifier::HighLimit, PropertyValue::Real(hi)));

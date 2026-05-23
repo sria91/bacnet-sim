@@ -2,7 +2,6 @@
 ///
 /// Performs the ConnectRequest/ConnectAccept handshake, then runs a bidirectional
 /// message loop.  Reconnects automatically after disconnection.
-
 use std::time::Duration;
 
 use bacnet_codec::sc::{ScFrame, ScFunction};
@@ -78,7 +77,8 @@ pub async fn connect(
         destination_vmac: None,
         payload: Bytes::from(payload),
     };
-    sink.send(Message::Binary(req.encode().to_vec().into())).await?;
+    sink.send(Message::Binary(req.encode().to_vec().into()))
+        .await?;
 
     // Wait for ConnectAccept
     loop {
@@ -99,7 +99,7 @@ pub async fn connect(
 
     // Channels for the application layer
     let (out_tx, out_rx) = mpsc::channel::<Bytes>(64); // app → node loop → hub
-    let (in_tx, in_rx) = mpsc::channel::<Bytes>(64);   // hub → node loop → app
+    let (in_tx, in_rx) = mpsc::channel::<Bytes>(64); // hub → node loop → app
 
     // Spawn the I/O loop
     tokio::spawn(async move {
@@ -116,11 +116,7 @@ pub async fn connect(
 }
 
 /// Reconnect loop: retries with exponential back-off.
-pub async fn connect_with_retry(
-    url: String,
-    node_id: ScNodeId,
-    vmac: [u8; 6],
-) -> ScNodeHandle {
+pub async fn connect_with_retry(url: String, node_id: ScNodeId, vmac: [u8; 6]) -> ScNodeHandle {
     let mut delay = Duration::from_millis(100);
     loop {
         match connect(&url, node_id, vmac).await {
@@ -153,7 +149,11 @@ async fn run_node_loop(
     // Forward queued outbound frames to the WS sink
     let write_loop = tokio::spawn(async move {
         while let Some(bytes) = out_rx.recv().await {
-            if sink.send(Message::Binary(bytes.to_vec().into())).await.is_err() {
+            if sink
+                .send(Message::Binary(bytes.to_vec().into()))
+                .await
+                .is_err()
+            {
                 break;
             }
         }
@@ -200,9 +200,7 @@ mod tests {
         let node_id = ScNodeId::random();
         let vmac = [0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01];
 
-        let _handle = connect(&url, node_id, vmac)
-            .await
-            .expect("connect failed");
+        let _handle = connect(&url, node_id, vmac).await.expect("connect failed");
 
         // Allow the hub a moment to register the node
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -245,17 +243,14 @@ mod tests {
             .expect("send_npdu failed");
 
         // Node B should receive an EncapsulatedNPDU frame within 1 second
-        let received = tokio::time::timeout(
-            std::time::Duration::from_secs(1),
-            handle_b.recv_frame(),
-        )
-        .await
-        .expect("timeout waiting for frame")
-        .expect("channel closed");
+        let received =
+            tokio::time::timeout(std::time::Duration::from_secs(1), handle_b.recv_frame())
+                .await
+                .expect("timeout waiting for frame")
+                .expect("channel closed");
 
         assert_eq!(received.function, ScFunction::EncapsulatedNpdu as u8);
         assert_eq!(received.destination_vmac, Some(vmac_b));
         assert_eq!(received.payload, test_npdu);
     }
 }
-

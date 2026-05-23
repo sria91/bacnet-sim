@@ -1,7 +1,6 @@
 /// BBMD (BACnet Broadcast Management Device) support.
 ///
 /// Stub — full BDT/FDT management implemented in later phases.
-
 use std::net::SocketAddrV4;
 
 pub struct BdtTable(pub Vec<BdtEntry>);

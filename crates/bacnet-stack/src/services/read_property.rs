@@ -1,9 +1,9 @@
 use bacnet_codec::apdu::{
-    ack::{ReadPropertyAck, ComplexAck, ComplexAckService},
+    ack::{ComplexAck, ComplexAckService, ReadPropertyAck},
     confirmed::ReadPropertyRequest,
 };
 use bacnet_object::store::ObjectStore;
-use bacnet_types::{DeviceId, error::BacnetError};
+use bacnet_types::{error::BacnetError, DeviceId};
 
 pub async fn handle_read_property(
     req: ReadPropertyRequest,

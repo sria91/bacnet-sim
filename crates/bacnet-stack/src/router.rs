@@ -1,5 +1,4 @@
 /// NPDU routing table and forwarding logic.
-
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -8,8 +7,13 @@ pub struct PortId(pub u32);
 #[derive(Debug, Clone)]
 pub enum RoutingDecision {
     LocalDeliver,
-    Forward { next_hop: bacnet_types::NetworkAddress, decrement_hop: bool },
-    Broadcast { networks: Vec<u16> },
+    Forward {
+        next_hop: bacnet_types::NetworkAddress,
+        decrement_hop: bool,
+    },
+    Broadcast {
+        networks: Vec<u16>,
+    },
     Drop(DropReason),
 }
 
@@ -27,7 +31,10 @@ pub struct NpduRouter {
 
 impl NpduRouter {
     pub fn new(local_network: u16) -> Self {
-        Self { routing_table: HashMap::new(), local_network }
+        Self {
+            routing_table: HashMap::new(),
+            local_network,
+        }
     }
 
     pub fn add_route(&mut self, network: u16, port: PortId, hop_count: u8) {
@@ -53,7 +60,10 @@ impl NpduRouter {
             }
             if let Some(hop) = npdu.hop_count {
                 if hop == 0 {
-                    return vec![(PortId(0), RoutingDecision::Drop(DropReason::HopCountExceeded))];
+                    return vec![(
+                        PortId(0),
+                        RoutingDecision::Drop(DropReason::HopCountExceeded),
+                    )];
                 }
             }
             if let Some((port, _)) = self.routing_table.get(&dst.network) {
@@ -63,7 +73,10 @@ impl NpduRouter {
                 };
                 return vec![(
                     *port,
-                    RoutingDecision::Forward { next_hop, decrement_hop: true },
+                    RoutingDecision::Forward {
+                        next_hop,
+                        decrement_hop: true,
+                    },
                 )];
             }
             return vec![(PortId(0), RoutingDecision::Drop(DropReason::NoRoute))];

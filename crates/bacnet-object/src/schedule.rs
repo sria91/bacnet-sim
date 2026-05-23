@@ -1,11 +1,9 @@
 /// Schedule object (ASHRAE 135-2020 §12.16).
 /// Simplified: weekly time-value schedule with per-device-property output list.
-
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use bacnet_types::{
-    DeviceId, ObjectId, ObjectType, PropertyIdentifier, PropertyValue,
-    error::BacnetError,
+    error::BacnetError, DeviceId, ObjectId, ObjectType, PropertyIdentifier, PropertyValue,
 };
 
 use crate::property::BacnetObject;
@@ -56,7 +54,10 @@ impl Schedule {
     pub fn new(device_id: DeviceId, instance: u32, name: impl Into<String>) -> Self {
         Self {
             device_id,
-            object_id: ObjectId { object_type: ObjectType::Schedule, instance },
+            object_id: ObjectId {
+                object_type: ObjectType::Schedule,
+                instance,
+            },
             object_name: name.into(),
             description: String::new(),
             present_value: PropertyValue::Null,
@@ -92,20 +93,19 @@ impl BacnetObject for Schedule {
         _array_index: Option<u32>,
     ) -> Result<PropertyValue, BacnetError> {
         match property_id {
-            PropertyIdentifier::ObjectIdentifier =>
-                Ok(PropertyValue::ObjectId(self.object_id)),
-            PropertyIdentifier::ObjectName =>
-                Ok(PropertyValue::CharacterString(self.object_name.clone())),
-            PropertyIdentifier::ObjectType =>
-                Ok(PropertyValue::Enumerated(ObjectType::Schedule as u32)),
-            PropertyIdentifier::Description =>
-                Ok(PropertyValue::CharacterString(self.description.clone())),
-            PropertyIdentifier::PresentValue =>
-                Ok(self.present_value.clone()),
-            PropertyIdentifier::OutOfService =>
-                Ok(PropertyValue::Boolean(self.out_of_service)),
-            PropertyIdentifier::ScheduleDefault =>
-                Ok(self.schedule_default.clone()),
+            PropertyIdentifier::ObjectIdentifier => Ok(PropertyValue::ObjectId(self.object_id)),
+            PropertyIdentifier::ObjectName => {
+                Ok(PropertyValue::CharacterString(self.object_name.clone()))
+            }
+            PropertyIdentifier::ObjectType => {
+                Ok(PropertyValue::Enumerated(ObjectType::Schedule as u32))
+            }
+            PropertyIdentifier::Description => {
+                Ok(PropertyValue::CharacterString(self.description.clone()))
+            }
+            PropertyIdentifier::PresentValue => Ok(self.present_value.clone()),
+            PropertyIdentifier::OutOfService => Ok(PropertyValue::Boolean(self.out_of_service)),
+            PropertyIdentifier::ScheduleDefault => Ok(self.schedule_default.clone()),
             _ => Err(BacnetError::UnknownProperty),
         }
     }
@@ -146,10 +146,7 @@ impl BacnetObject for Schedule {
         if self.out_of_service {
             return;
         }
-        let secs = now
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+        let secs = now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
         self.present_value = self.evaluate_at(secs).clone();
     }
 
@@ -159,13 +156,31 @@ impl BacnetObject for Schedule {
 
     fn all_properties(&self) -> Vec<(PropertyIdentifier, PropertyValue)> {
         vec![
-            (PropertyIdentifier::ObjectIdentifier, PropertyValue::ObjectId(self.object_id)),
-            (PropertyIdentifier::ObjectName, PropertyValue::CharacterString(self.object_name.clone())),
-            (PropertyIdentifier::ObjectType, PropertyValue::Enumerated(ObjectType::Schedule as u32)),
-            (PropertyIdentifier::Description, PropertyValue::CharacterString(self.description.clone())),
+            (
+                PropertyIdentifier::ObjectIdentifier,
+                PropertyValue::ObjectId(self.object_id),
+            ),
+            (
+                PropertyIdentifier::ObjectName,
+                PropertyValue::CharacterString(self.object_name.clone()),
+            ),
+            (
+                PropertyIdentifier::ObjectType,
+                PropertyValue::Enumerated(ObjectType::Schedule as u32),
+            ),
+            (
+                PropertyIdentifier::Description,
+                PropertyValue::CharacterString(self.description.clone()),
+            ),
             (PropertyIdentifier::PresentValue, self.present_value.clone()),
-            (PropertyIdentifier::OutOfService, PropertyValue::Boolean(self.out_of_service)),
-            (PropertyIdentifier::ScheduleDefault, self.schedule_default.clone()),
+            (
+                PropertyIdentifier::OutOfService,
+                PropertyValue::Boolean(self.out_of_service),
+            ),
+            (
+                PropertyIdentifier::ScheduleDefault,
+                self.schedule_default.clone(),
+            ),
         ]
     }
 }
@@ -179,8 +194,14 @@ mod tests {
         sched.schedule_default = PropertyValue::Real(18.0);
         // Monday: occupied 08:00→21.0, unoccupied 18:00→18.0
         sched.weekly_schedule[0].slots = vec![
-            TimeValue { time_of_day_secs: 8 * 3600,  value: PropertyValue::Real(21.0) },
-            TimeValue { time_of_day_secs: 18 * 3600, value: PropertyValue::Real(18.0) },
+            TimeValue {
+                time_of_day_secs: 8 * 3600,
+                value: PropertyValue::Real(21.0),
+            },
+            TimeValue {
+                time_of_day_secs: 18 * 3600,
+                value: PropertyValue::Real(18.0),
+            },
         ];
         sched
     }

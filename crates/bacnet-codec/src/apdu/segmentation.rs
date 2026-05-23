@@ -1,11 +1,10 @@
+use bytes::{Bytes, BytesMut};
 /// Segmentation reassembly buffer and ACK logic.
 ///
 /// BACnet segments large APDUs when they exceed `MaxAPDULengthAccepted`.
 /// The dispatcher uses this to reassemble inbound segments and to drive
 /// the outbound window/retry protocol.
-
 use std::collections::HashMap;
-use bytes::{Bytes, BytesMut};
 
 /// A partially-reassembled segmented APDU.
 pub struct SegmentBuffer {

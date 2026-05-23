@@ -1,5 +1,4 @@
 /// Alarm / intrinsic reporting state machine (ASHRAE 135-2020 §13).
-
 use bacnet_types::{ObjectId, PropertyValue};
 use std::time::Instant;
 
@@ -15,9 +14,17 @@ pub enum EventState {
 }
 
 pub enum IntrinsicAlgorithm {
-    OutOfRange { high_limit: f32, low_limit: f32, deadband: f32 },
-    ChangeOfValue { cov_increment: f32 },
-    CommandFailure { feedback_timeout: std::time::Duration },
+    OutOfRange {
+        high_limit: f32,
+        low_limit: f32,
+        deadband: f32,
+    },
+    ChangeOfValue {
+        cov_increment: f32,
+    },
+    CommandFailure {
+        feedback_timeout: std::time::Duration,
+    },
 }
 
 pub struct EventNotification {
@@ -43,7 +50,11 @@ impl AlarmStateMachine {
         object_id: ObjectId,
     ) -> Option<EventNotification> {
         match &self.algorithm {
-            IntrinsicAlgorithm::OutOfRange { high_limit, low_limit, deadband } => {
+            IntrinsicAlgorithm::OutOfRange {
+                high_limit,
+                low_limit,
+                deadband,
+            } => {
                 let v = value.as_f32()?;
                 let new_state = if v > *high_limit {
                     EventState::HighLimit
@@ -53,10 +64,14 @@ impl AlarmStateMachine {
                     // Apply deadband when returning to normal
                     let in_dead = match self.current_state {
                         EventState::HighLimit => v > *high_limit - *deadband,
-                        EventState::LowLimit  => v < *low_limit  + *deadband,
+                        EventState::LowLimit => v < *low_limit + *deadband,
                         _ => false,
                     };
-                    if in_dead { self.current_state } else { EventState::Normal }
+                    if in_dead {
+                        self.current_state
+                    } else {
+                        EventState::Normal
+                    }
                 };
 
                 if new_state == self.current_state {

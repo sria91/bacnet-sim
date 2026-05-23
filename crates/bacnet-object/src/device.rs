@@ -181,7 +181,10 @@ impl BacnetObject for DeviceObject {
                         .map(|&id| PropertyValue::Enumerated(id))
                         .ok_or(BacnetError::ValueOutOfRange),
                     None => Ok(PropertyValue::Array(
-                        props.iter().map(|&id| PropertyValue::Enumerated(id)).collect(),
+                        props
+                            .iter()
+                            .map(|&id| PropertyValue::Enumerated(id))
+                            .collect(),
                     )),
                 }
             }
@@ -353,7 +356,16 @@ fn current_utc() -> (BacnetDate, BacnetTime) {
     let month_lens = [
         31u32,
         if is_leap(year) { 29 } else { 28 },
-        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
     ];
     let mut month = 1u8;
     for (i, &ml) in month_lens.iter().enumerate() {

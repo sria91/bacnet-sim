@@ -1,7 +1,6 @@
 /// In-process virtual MS/TP bus.
 ///
 /// All simulated MS/TP nodes share this bus via broadcast channels.
-
 use bacnet_codec::mstp::MstpFrame;
 use tokio::sync::broadcast;
 

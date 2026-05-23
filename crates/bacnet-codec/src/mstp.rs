@@ -1,7 +1,6 @@
 /// BACnet MS/TP frame codec.
 ///
 /// References: ASHRAE 135-2020 Clause 9.
-
 use bacnet_types::error::BacnetError;
 use bytes::{BufMut, Bytes, BytesMut};
 
@@ -94,8 +93,8 @@ impl MstpFrame {
         if buf.len() < 8 {
             return Err(MstpDecodeError::Incomplete);
         }
-        let frame_type = MstpFrameType::from_u8(buf[2])
-            .ok_or(MstpDecodeError::UnknownFrameType(buf[2]))?;
+        let frame_type =
+            MstpFrameType::from_u8(buf[2]).ok_or(MstpDecodeError::UnknownFrameType(buf[2]))?;
         let destination = buf[3];
         let source = buf[4];
         let data_len = u16::from_be_bytes([buf[5], buf[6]]) as usize;
@@ -115,7 +114,12 @@ impl MstpFrame {
                 return Err(MstpDecodeError::BadDataCrc);
             }
         }
-        Ok(Self { frame_type, destination, source, data })
+        Ok(Self {
+            frame_type,
+            destination,
+            source,
+            data,
+        })
     }
 }
 
@@ -192,7 +196,10 @@ mod tests {
     #[test]
     fn decode_incomplete_frame() {
         let partial = vec![0x55u8, 0xFF, 0x00];
-        assert_eq!(MstpFrame::decode(&partial), Err(MstpDecodeError::Incomplete));
+        assert_eq!(
+            MstpFrame::decode(&partial),
+            Err(MstpDecodeError::Incomplete)
+        );
     }
 
     #[test]

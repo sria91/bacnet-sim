@@ -1,6 +1,6 @@
 use bacnet_codec::apdu::confirmed::WritePropertyRequest;
 use bacnet_object::store::ObjectStore;
-use bacnet_types::{DeviceId, error::BacnetError};
+use bacnet_types::{error::BacnetError, DeviceId};
 
 pub async fn handle_write_property(
     req: WritePropertyRequest,

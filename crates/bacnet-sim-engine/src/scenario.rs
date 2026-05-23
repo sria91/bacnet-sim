@@ -1,5 +1,4 @@
 /// Scenario scripting: loads and runs Rhai scripts that manipulate the simulation.
-
 use bacnet_object::store::ObjectStore;
 use bacnet_types::{DeviceId, ObjectId, PropertyIdentifier, PropertyValue};
 use rhai::{Engine, Scope, AST};
@@ -77,9 +76,16 @@ impl ScenarioRunner {
     }
 
     /// Load a scenario from a Rhai source string.
-    pub fn load_str(&self, name: &str, source: &str) -> Result<Scenario, Box<dyn std::error::Error>> {
+    pub fn load_str(
+        &self,
+        name: &str,
+        source: &str,
+    ) -> Result<Scenario, Box<dyn std::error::Error>> {
         let ast = self.engine.compile(source)?;
-        Ok(Scenario { name: name.to_string(), ast })
+        Ok(Scenario {
+            name: name.to_string(),
+            ast,
+        })
     }
 
     /// Execute a scenario at simulation time `t` (seconds since start).
@@ -111,9 +117,16 @@ mod tests {
         runner.run(&scenario, 0.0).expect("run failed");
 
         let obj_ref = store
-            .get(dev, ObjectId { object_type: ObjectType::AnalogInput, instance: 1 })
+            .get(
+                dev,
+                ObjectId {
+                    object_type: ObjectType::AnalogInput,
+                    instance: 1,
+                },
+            )
             .unwrap();
-        let val = obj_ref.read_guard()
+        let val = obj_ref
+            .read_guard()
             .read_property(PropertyIdentifier::PresentValue, None)
             .unwrap();
         assert_eq!(val, PropertyValue::Real(42.5));

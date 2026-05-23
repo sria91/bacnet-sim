@@ -2,7 +2,6 @@
 ///
 /// BACnet uses context tags (bit 3 = 1) to disambiguate fields within
 /// structured PDUs.  These helpers wrap the common patterns.
-
 use bytes::BytesMut;
 
 /// Emit an opening/closing context tag pair around `inner`.

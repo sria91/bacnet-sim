@@ -1,7 +1,6 @@
 /// Criterion benchmarks for the bacnet-codec crate.
 ///
 /// Run with: cargo bench -p bacnet-codec
-
 use bytes::{Bytes, BytesMut};
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 

@@ -1,5 +1,4 @@
 /// Simulator topology definition — parsed from TOML / YAML / JSON.
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

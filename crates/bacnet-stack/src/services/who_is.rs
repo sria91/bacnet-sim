@@ -1,5 +1,5 @@
-use bacnet_codec::apdu::unconfirmed::{IAmRequest, UnconfirmedRequest};
 use bacnet_codec::apdu::confirmed::Segmentation;
+use bacnet_codec::apdu::unconfirmed::{IAmRequest, UnconfirmedRequest};
 use bacnet_types::DeviceId;
 
 /// Handle a Who-Is request: return `Some(I-Am)` if `device_id` is in range.

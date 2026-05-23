@@ -1,7 +1,6 @@
 /// Config hot-reload: watches a TOML topology file for changes and logs when
 /// it is modified.  Actual live re-application of objects is a future
 /// enhancement; this module provides the watcher scaffolding.
-
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
@@ -42,10 +41,7 @@ pub async fn watch(config_path: String, _store: Arc<ObjectStore>) {
         match event {
             Ok(e) => {
                 let is_our_file = e.paths.iter().any(|p| p.ends_with(&path));
-                let is_write = matches!(
-                    e.kind,
-                    EventKind::Modify(_) | EventKind::Create(_)
-                );
+                let is_write = matches!(e.kind, EventKind::Modify(_) | EventKind::Create(_));
                 if is_our_file && is_write {
                     let now = std::time::Instant::now();
                     if now.duration_since(last_reload) >= Duration::from_millis(500) {

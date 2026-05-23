@@ -1,13 +1,12 @@
+use crate::error::BacnetError;
+use crate::object_types::ObjectType;
+use crate::property_value::{BacnetDate, BitString, Weekday};
+use crate::ObjectId;
 /// BACnet ASN.1 application-tag encoding helpers.
 ///
 /// Each `encode_*` function appends a fully-formed TLV to `buf`.
 /// Each `decode_*` function parses from `buf` and returns `(value, bytes_consumed)`.
-
 use bytes::BytesMut;
-use crate::error::BacnetError;
-use crate::property_value::{BacnetDate, BitString, Weekday};
-use crate::object_types::ObjectType;
-use crate::ObjectId;
 
 // ---------------------------------------------------------------------------
 // Unsigned integer
@@ -25,11 +24,16 @@ pub fn decode_application_unsigned(buf: &[u8]) -> Result<(u32, usize), BacnetErr
     }
     let tag = buf[0];
     if (tag >> 4) != 2 {
-        return Err(BacnetError::DecodeError(format!("expected unsigned tag, got {:#02x}", tag)));
+        return Err(BacnetError::DecodeError(format!(
+            "expected unsigned tag, got {:#02x}",
+            tag
+        )));
     }
     let len = (tag & 0x07) as usize;
     if buf.len() < 1 + len {
-        return Err(BacnetError::DecodeError("buffer too short for unsigned".into()));
+        return Err(BacnetError::DecodeError(
+            "buffer too short for unsigned".into(),
+        ));
     }
     let mut v = 0u32;
     for &b in &buf[1..1 + len] {
@@ -52,7 +56,10 @@ pub fn decode_application_real(buf: &[u8]) -> Result<(f32, usize), BacnetError> 
         return Err(BacnetError::DecodeError("buffer too short for real".into()));
     }
     if (buf[0] >> 4) != 4 || (buf[0] & 0x07) != 4 {
-        return Err(BacnetError::DecodeError(format!("expected real tag, got {:#02x}", buf[0])));
+        return Err(BacnetError::DecodeError(format!(
+            "expected real tag, got {:#02x}",
+            buf[0]
+        )));
     }
     let v = f32::from_be_bytes([buf[1], buf[2], buf[3], buf[4]]);
     Ok((v, 5))
@@ -71,17 +78,28 @@ pub fn encode_application_object_id(buf: &mut BytesMut, oid: ObjectId) {
 
 pub fn decode_application_object_id(buf: &[u8]) -> Result<(ObjectId, usize), BacnetError> {
     if buf.len() < 5 {
-        return Err(BacnetError::DecodeError("buffer too short for object-id".into()));
+        return Err(BacnetError::DecodeError(
+            "buffer too short for object-id".into(),
+        ));
     }
     if buf[0] != 0xC4 {
-        return Err(BacnetError::DecodeError(format!("expected object-id tag, got {:#02x}", buf[0])));
+        return Err(BacnetError::DecodeError(format!(
+            "expected object-id tag, got {:#02x}",
+            buf[0]
+        )));
     }
     let raw = u32::from_be_bytes([buf[1], buf[2], buf[3], buf[4]]);
     let type_code = (raw >> 22) as u16;
     let instance = raw & 0x3FFFFF;
     let object_type = ObjectType::from_u16(type_code)
         .ok_or_else(|| BacnetError::DecodeError(format!("unknown object type {type_code}")))?;
-    Ok((ObjectId { object_type, instance }, 5))
+    Ok((
+        ObjectId {
+            object_type,
+            instance,
+        },
+        5,
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -103,7 +121,10 @@ pub fn decode_application_date(buf: &[u8]) -> Result<(BacnetDate, usize), Bacnet
         return Err(BacnetError::DecodeError("buffer too short for date".into()));
     }
     if (buf[0] >> 4) != 10 {
-        return Err(BacnetError::DecodeError(format!("expected date tag, got {:#02x}", buf[0])));
+        return Err(BacnetError::DecodeError(format!(
+            "expected date tag, got {:#02x}",
+            buf[0]
+        )));
     }
     let year = buf[1] as u16 + 1900;
     let month = buf[2];
@@ -118,7 +139,15 @@ pub fn decode_application_date(buf: &[u8]) -> Result<(BacnetDate, usize), Bacnet
         7 => Weekday::Sunday,
         _ => Weekday::Unspecified,
     };
-    Ok((BacnetDate { year, month, day, weekday }, 5))
+    Ok((
+        BacnetDate {
+            year,
+            month,
+            day,
+            weekday,
+        },
+        5,
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -127,13 +156,17 @@ pub fn decode_application_date(buf: &[u8]) -> Result<(BacnetDate, usize), Bacnet
 
 pub fn encode_application_bitstring(buf: &mut BytesMut, bits: &BitString) {
     let data = bits.bits();
-    let unused = if data.is_empty() { 0u8 } else { (8 - data.len() % 8) as u8 % 8 };
+    let unused = if data.is_empty() {
+        0u8
+    } else {
+        (8 - data.len() % 8) as u8 % 8
+    };
     let byte_count = (data.len() + 7) / 8;
     let total_len = 1 + byte_count; // unused-bits octet + data bytes
-    // BACnet LVT 0-4 = direct length; LVT 5 = "next byte is the actual length".
-    // Bitstrings for ProtocolServicesSupported (40-bit) and
-    // ProtocolObjectTypesSupported (32-bit) have total_len >= 5 and therefore
-    // require the extended-length form.
+                                    // BACnet LVT 0-4 = direct length; LVT 5 = "next byte is the actual length".
+                                    // Bitstrings for ProtocolServicesSupported (40-bit) and
+                                    // ProtocolObjectTypesSupported (32-bit) have total_len >= 5 and therefore
+                                    // require the extended-length form.
     if total_len <= 4 {
         buf.extend_from_slice(&[tag_byte(8, total_len as u8), unused]);
     } else {
@@ -156,10 +189,15 @@ pub fn encode_application_bitstring(buf: &mut BytesMut, bits: &BitString) {
 
 pub fn decode_application_bitstring(buf: &[u8]) -> Result<(BitString, usize), BacnetError> {
     if buf.len() < 2 {
-        return Err(BacnetError::DecodeError("buffer too short for bitstring".into()));
+        return Err(BacnetError::DecodeError(
+            "buffer too short for bitstring".into(),
+        ));
     }
     if (buf[0] >> 4) != 8 {
-        return Err(BacnetError::DecodeError(format!("expected bitstring tag, got {:#02x}", buf[0])));
+        return Err(BacnetError::DecodeError(format!(
+            "expected bitstring tag, got {:#02x}",
+            buf[0]
+        )));
     }
     let lvt = (buf[0] & 0x07) as usize;
     // LVT 0-4 = direct length; LVT 5 = next 1 byte is actual length.
@@ -178,14 +216,24 @@ pub fn decode_application_bitstring(buf: &[u8]) -> Result<(BitString, usize), Ba
         )));
     };
     if buf.len() < value_start + total_len {
-        return Err(BacnetError::DecodeError("buffer too short for bitstring data".into()));
+        return Err(BacnetError::DecodeError(
+            "buffer too short for bitstring data".into(),
+        ));
     }
     let unused = buf[value_start] as usize;
     let data_bytes = &buf[value_start + 1..value_start + total_len];
-    let bit_count = if data_bytes.is_empty() { 0 } else { data_bytes.len() * 8 - unused };
+    let bit_count = if data_bytes.is_empty() {
+        0
+    } else {
+        data_bytes.len() * 8 - unused
+    };
     let mut bits = Vec::with_capacity(bit_count);
     for (i, &byte) in data_bytes.iter().enumerate() {
-        let limit = if i == data_bytes.len() - 1 { 8 - unused } else { 8 };
+        let limit = if i == data_bytes.len() - 1 {
+            8 - unused
+        } else {
+            8
+        };
         for j in 0..limit {
             bits.push((byte & (0x80 >> j)) != 0);
         }
@@ -265,7 +313,10 @@ mod tests {
 
     #[test]
     fn encode_object_id() {
-        let oid = ObjectId { object_type: ObjectType::AnalogInput, instance: 7 };
+        let oid = ObjectId {
+            object_type: ObjectType::AnalogInput,
+            instance: 7,
+        };
         let mut buf = BytesMut::new();
         encode_application_object_id(&mut buf, oid);
         assert_eq!(buf.as_ref(), &[0xC4, 0x00, 0x00, 0x00, 0x07]);
