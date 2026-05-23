@@ -28,7 +28,7 @@ pub fn encode_property_value(buf: &mut BytesMut, value: &PropertyValue) -> Resul
                 if *v < 0x100 {
                     (1u8, [*v as u8, 0, 0, 0])
                 } else {
-                    (4, v.to_be_bytes().into())
+                    (4, v.to_be_bytes())
                 }
             };
             buf.extend_from_slice(&[0x90 | len]);

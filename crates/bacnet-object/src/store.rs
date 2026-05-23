@@ -115,6 +115,7 @@ impl ObjectStore {
 
     /// Bulk-insert objects with minimal lock contention: groups insertions by
     /// shard so each shard lock is acquired at most once.
+    #[allow(clippy::type_complexity)]
     pub fn bulk_insert(&self, objects: Vec<(DeviceId, Box<dyn BacnetObject>)>) {
         // Bucket each object into its target shard (no heap alloc per empty bucket).
         let mut by_shard: Vec<Vec<(u64, u64, Box<dyn BacnetObject>)>> =

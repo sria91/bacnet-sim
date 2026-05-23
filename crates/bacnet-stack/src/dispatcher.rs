@@ -181,7 +181,7 @@ impl ApduDispatcher {
             UnconfirmedRequest::WhoIs(w) => {
                 info!(low = ?w.low_limit, high = ?w.high_limit, from = ?src, "received Who-Is");
                 // Each registered device that matches the range sends an I-Am
-                for (_, dev) in &self.devices {
+                for dev in self.devices.values() {
                     if let Some(iam) = who_is::handle_who_is(
                         w.low_limit,
                         w.high_limit,

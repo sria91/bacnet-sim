@@ -217,7 +217,7 @@ async fn write_property(
     let mut obj_ref = state
         .store
         .get(dev, oid)
-        .ok_or_else(|| not_found(format!("Object not found")))?;
+        .ok_or_else(|| not_found("Object not found".to_string()))?;
 
     let pv = json_to_property_value(&body.value, pid)
         .map_err(|e| ApiError(StatusCode::BAD_REQUEST, e))?;

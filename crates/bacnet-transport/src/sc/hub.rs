@@ -166,7 +166,7 @@ impl ScHub {
                         if frame.function == ScFunction::EncapsulatedNpdu as u8 {
                             if let Some(dest_vmac) = frame.destination_vmac {
                                 if let Some(dest) = nodes.get(&dest_vmac) {
-                                    let _ = dest.tx.try_send(Bytes::from(data));
+                                    let _ = dest.tx.try_send(data);
                                 }
                             }
                         } else if frame.function == ScFunction::Heartbeat as u8 {

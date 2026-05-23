@@ -23,8 +23,20 @@ impl BdtTable {
     }
 }
 
+impl Default for BdtTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FdtTable {
     pub fn new() -> Self {
         Self(Vec::new())
+    }
+}
+
+impl Default for FdtTable {
+    fn default() -> Self {
+        Self::new()
     }
 }

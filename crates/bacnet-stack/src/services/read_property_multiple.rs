@@ -4,6 +4,7 @@ use bacnet_codec::apdu::ack::{
 use bacnet_object::store::ObjectStore;
 use bacnet_types::{error::BacnetError, DeviceId, ObjectId, PropertyIdentifier};
 
+#[allow(clippy::type_complexity)]
 pub async fn handle_read_property_multiple(
     specs: Vec<(ObjectId, Vec<(PropertyIdentifier, Option<u32>)>)>,
     store: &ObjectStore,

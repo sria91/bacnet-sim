@@ -105,6 +105,7 @@ pub struct WhoIsRequest {
 }
 
 /// Union of all confirmed service request bodies.
+#[allow(clippy::type_complexity)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConfirmedServiceRequest {
     ReadProperty(ReadPropertyRequest),
@@ -280,6 +281,7 @@ fn decode_write_property(body: &[u8]) -> Result<WritePropertyRequest, BacnetErro
 ///       property-identifier        [0] BACnetPropertyIdentifier
 ///       property-array-index       [1] Unsigned OPTIONAL
 /// ```
+#[allow(clippy::type_complexity)]
 fn decode_rpm(
     body: &[u8],
 ) -> Result<Vec<(ObjectId, Vec<(PropertyIdentifier, Option<u32>)>)>, BacnetError> {

@@ -78,7 +78,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz --locked
+        run: cargo install cargo-fuzz
 
       # Build each fuzz target to ensure they at least compile cleanly.
       - name: Build fuzz targets

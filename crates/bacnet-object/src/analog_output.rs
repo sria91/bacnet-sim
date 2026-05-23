@@ -136,7 +136,7 @@ impl BacnetObject for AnalogOutput {
         match property_id {
             PropertyIdentifier::PresentValue => {
                 let pri = priority.unwrap_or(16) as usize;
-                if pri < 1 || pri > 16 {
+                if !(1..=16).contains(&pri) {
                     return Err(BacnetError::ValueOutOfRange);
                 }
                 let idx = pri - 1;

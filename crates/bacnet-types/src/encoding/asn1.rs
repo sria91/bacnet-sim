@@ -161,7 +161,7 @@ pub fn encode_application_bitstring(buf: &mut BytesMut, bits: &BitString) {
     } else {
         (8 - data.len() % 8) as u8 % 8
     };
-    let byte_count = (data.len() + 7) / 8;
+    let byte_count = data.len().div_ceil(8);
     let total_len = 1 + byte_count; // unused-bits octet + data bytes
                                     // BACnet LVT 0-4 = direct length; LVT 5 = "next byte is the actual length".
                                     // Bitstrings for ProtocolServicesSupported (40-bit) and
@@ -182,7 +182,7 @@ pub fn encode_application_bitstring(buf: &mut BytesMut, bits: &BitString) {
             byte = 0;
         }
     }
-    if data.len() % 8 != 0 {
+    if !data.len().is_multiple_of(8) {
         buf.extend_from_slice(&[byte]);
     }
 }
