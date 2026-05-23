@@ -11,7 +11,7 @@ use std::time::{Duration, Instant, SystemTime};
 use tokio::sync::mpsc;
 use tokio::time::interval;
 
-use crate::alarm_engine::{AlarmStateMachine, EventNotification};
+use crate::alarm_engine::AlarmStateMachine;
 use crate::cov_engine::{CovEngine, CovNotification};
 use crate::value_model::ValueModel;
 

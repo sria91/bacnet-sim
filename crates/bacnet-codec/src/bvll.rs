@@ -2,7 +2,7 @@
 ///
 /// References: ASHRAE 135-2020 Annex J.
 use bacnet_types::error::BacnetError;
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use std::net::SocketAddrV4;
 
 pub const BVLL_TYPE: u8 = 0x81;

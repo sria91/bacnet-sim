@@ -34,6 +34,7 @@ pub struct VirtualMstpMaster {
     pub max_master: u8,
     state: MasterState,
     next_station: u8,
+    #[allow(dead_code)]
     token_count: u8,
     bus_tx: broadcast::Sender<MstpFrame>,
     bus_rx: broadcast::Receiver<MstpFrame>,
@@ -285,7 +286,7 @@ mod tests {
 
         let mut master0 = VirtualMstpMaster::join(&bus, 0, max_master);
         let sender = master0.outbound_sender().unwrap();
-        let mut master1 = VirtualMstpMaster::join(&bus, 1, max_master);
+        let master1 = VirtualMstpMaster::join(&bus, 1, max_master);
 
         // Snapshot master1's bus_rx before spawning, so we can observe frames.
         // We use a separate subscriber for the assertion.

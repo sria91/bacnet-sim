@@ -224,7 +224,7 @@ mod tests {
 
         let node_id_a = ScNodeId::random();
         let vmac_a = [0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0x01];
-        let mut handle_a = connect(&url, node_id_a, vmac_a)
+        let handle_a = connect(&url, node_id_a, vmac_a)
             .await
             .expect("node A connect failed");
 

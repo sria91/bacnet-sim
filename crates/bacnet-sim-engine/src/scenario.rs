@@ -1,7 +1,7 @@
 /// Scenario scripting: loads and runs Rhai scripts that manipulate the simulation.
 
 use bacnet_object::store::ObjectStore;
-use bacnet_types::{DeviceId, ObjectId, ObjectType, PropertyIdentifier, PropertyValue};
+use bacnet_types::{DeviceId, ObjectId, PropertyIdentifier, PropertyValue};
 use rhai::{Engine, Scope, AST};
 use std::path::Path;
 use std::sync::Arc;
@@ -14,6 +14,7 @@ pub struct Scenario {
 
 pub struct ScenarioRunner {
     engine: Engine,
+    #[allow(dead_code)]
     store: Arc<ObjectStore>,
 }
 
@@ -94,7 +95,7 @@ impl ScenarioRunner {
 mod tests {
     use super::*;
     use bacnet_object::analog_input::AnalogInput;
-    use bacnet_types::property_value::EngineeringUnits;
+    use bacnet_types::{property_value::EngineeringUnits, ObjectType};
 
     #[test]
     fn scenario_set_analog_value() {

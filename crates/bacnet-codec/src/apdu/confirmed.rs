@@ -6,7 +6,7 @@ use bacnet_types::{
     error::BacnetError,
     ObjectId, PropertyIdentifier,
 };
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use bytes::{BufMut, BytesMut};
 
 /// BACnet confirmed-service choice codes (ASHRAE 135-2020 §21.5.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

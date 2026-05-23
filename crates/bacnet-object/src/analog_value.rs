@@ -4,7 +4,7 @@
 use bacnet_types::{
     DeviceId, ObjectId, ObjectType, PropertyIdentifier, PropertyValue,
     property_value::{EngineeringUnits, EventState, Reliability, StatusFlags},
-    error::{BacnetError, ErrorCode},
+    error::BacnetError,
 };
 use std::time::Instant;
 

@@ -1,12 +1,11 @@
 /// BACnet/IP UDP transport (BVLL layer).
 use bacnet_codec::bvll::BvllFrame;
 use bacnet_types::NetworkAddress;
-use bytes::Bytes;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::sync::{broadcast, mpsc};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 use crate::{Destination, InboundFrame, OutboundFrame};
 

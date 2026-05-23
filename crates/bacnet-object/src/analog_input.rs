@@ -3,7 +3,7 @@
 use bacnet_types::{
     DeviceId, ObjectId, ObjectType, PropertyIdentifier, PropertyValue,
     property_value::{EngineeringUnits, EventState, Reliability, StatusFlags},
-    error::{BacnetError, ErrorClass, ErrorCode},
+    error::BacnetError,
 };
 use std::time::{Duration, Instant, SystemTime};
 
@@ -30,6 +30,7 @@ pub struct AnalogInput {
     pub deadband: f32,
     pub profile_name: Option<String>,
 
+    #[allow(dead_code)]
     pub(crate) last_cov_val: f32,
     pub(crate) last_changed: Instant,
 }

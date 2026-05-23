@@ -4,7 +4,7 @@
 /// an `ObjectStore`, optionally registering value models with a `SimEngine`.
 use std::sync::Arc;
 
-use bacnet_config::topology::{ModelParams, ObjectConfig, ProfileConfig, SimulatorConfig};
+use bacnet_config::topology::{ModelParams, ProfileConfig, SimulatorConfig};
 use bacnet_object::{
     analog_input::AnalogInput, analog_output::AnalogOutput, analog_value::AnalogValue,
     binary_input::BinaryInput, binary_output::BinaryOutput, binary_value::BinaryValue,
@@ -168,6 +168,7 @@ pub fn parse_units(s: Option<&str>) -> EngineeringUnits {
 }
 
 /// Parse a model name + params into a `Box<dyn ValueModel>`.
+#[allow(dead_code)]
 pub fn parse_model(model: Option<&str>, params: &ModelParams) -> Option<Box<dyn ValueModel>> {
     match model?.to_lowercase().as_str() {
         "constant" => Some(Box::new(ConstantModel(params.value.unwrap_or(0.0)))),

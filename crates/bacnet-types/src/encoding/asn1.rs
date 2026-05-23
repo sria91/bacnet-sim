@@ -5,7 +5,7 @@
 
 use bytes::BytesMut;
 use crate::error::BacnetError;
-use crate::property_value::{BacnetDate, BacnetTime, BitString, Weekday};
+use crate::property_value::{BacnetDate, BitString, Weekday};
 use crate::object_types::ObjectType;
 use crate::ObjectId;
 

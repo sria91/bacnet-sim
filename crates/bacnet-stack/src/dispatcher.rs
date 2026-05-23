@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use bacnet_codec::{
     apdu::{
-        ack::{ComplexAck, ComplexAckService, SimpleAck},
+        ack::SimpleAck,
         confirmed::{ConfirmedRequest, ConfirmedServiceRequest},
         error::ErrorPdu,
         unconfirmed::UnconfirmedRequest,
@@ -400,6 +400,3 @@ fn encode_error_pdu(invoke_id: u8, service_choice: u8, e: &BacnetError) -> Bytes
     buf
 }
 
-fn u8_to_service_choice(_v: u8) -> bacnet_codec::apdu::confirmed::ConfirmedServiceChoice {
-    bacnet_codec::apdu::confirmed::ConfirmedServiceChoice::ReadProperty
-}

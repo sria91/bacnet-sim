@@ -1,4 +1,4 @@
-use bacnet_types::error::{BacnetError, ErrorClass, ErrorCode};
+use bacnet_types::error::{ErrorClass, ErrorCode};
 use bytes::{BufMut, BytesMut};
 
 /// A BACnet Error PDU.
@@ -22,6 +22,7 @@ impl ErrorPdu {
         buf.put_u8(self.error_code_byte());
     }
 
+    #[allow(dead_code)]
     fn error_class_byte(&self) -> u8 {
         match self.error_class {
             ErrorClass::Device => 0,

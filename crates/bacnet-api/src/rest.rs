@@ -206,8 +206,6 @@ async fn write_property(
     Path((dev_id, obj_type, inst, prop)): Path<(u32, String, u32, String)>,
     Json(body): Json<WritePropertyBody>,
 ) -> Result<impl IntoResponse, ApiError> {
-    use bacnet_types::{property_id::PropertyIdentifier, property_value::PropertyValue};
-
     let otype = parse_object_type(&obj_type)?;
     let dev = DeviceId(dev_id);
     let oid = ObjectId {

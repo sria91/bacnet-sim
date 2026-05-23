@@ -1,7 +1,4 @@
-use crate::{
-    error::{BacnetError, ErrorClass, ErrorCode},
-    ObjectId,
-};
+use crate::ObjectId;
 use serde::{Deserialize, Serialize};
 
 /// BACnet engineering units (ASHRAE 135-2020 §23.7).

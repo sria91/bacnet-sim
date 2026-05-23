@@ -20,6 +20,7 @@ use tracing::{debug, info, warn};
 /// Per-node send handle kept in the hub registry.
 struct NodeHandle {
     node_id: ScNodeId,
+    #[allow(dead_code)]
     vmac: [u8; 6],
     tx: mpsc::Sender<Bytes>,
 }
@@ -97,7 +98,7 @@ impl ScHub {
 
     async fn handle_connection(
         stream: tokio::net::TcpStream,
-        peer: SocketAddr,
+        _peer: SocketAddr,
         nodes: Arc<DashMap<[u8; 6], NodeHandle>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut ws = accept_async(stream).await?;

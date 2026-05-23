@@ -2,11 +2,11 @@
 /// Stores a bounded ring buffer of timestamped property values.
 
 use std::collections::VecDeque;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime};
 
 use bacnet_types::{
     DeviceId, ObjectId, ObjectType, PropertyIdentifier, PropertyValue,
-    error::{BacnetError, ErrorClass, ErrorCode},
+    error::BacnetError,
 };
 
 use crate::property::BacnetObject;
@@ -160,7 +160,7 @@ impl BacnetObject for TrendLog {
         }
     }
 
-    fn tick(&mut self, now: SystemTime, delta: Duration) {
+    fn tick(&mut self, _now: SystemTime, _delta: Duration) {
         if !self.enable || self.out_of_service {
             return;
         }

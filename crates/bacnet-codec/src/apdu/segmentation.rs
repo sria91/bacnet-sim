@@ -5,7 +5,6 @@
 /// the outbound window/retry protocol.
 
 use std::collections::HashMap;
-use bacnet_types::error::BacnetError;
 use bytes::{Bytes, BytesMut};
 
 /// A partially-reassembled segmented APDU.

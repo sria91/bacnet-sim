@@ -1,6 +1,5 @@
 /// NPDU routing table and forwarding logic.
 
-use bacnet_types::error::BacnetError;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
