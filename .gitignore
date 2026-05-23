@@ -5,3 +5,4 @@ Cargo.lock
 *.crt
 certs/
 .env
+/fuzz/target
